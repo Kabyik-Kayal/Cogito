@@ -34,7 +34,7 @@ We are dropping the linear chain for a **Cyclic Graph**.
 
 ---
 
-### **3. The Tech Stack **
+### **3. The Tech Stack**
 
 * **Orchestration:** **LangGraph**. (Mandatory. It is the Python framework for state machines).
 * **Vector DB:** **ChromaDB**. (Local, fast, widely used).
