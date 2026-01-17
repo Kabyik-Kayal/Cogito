@@ -18,3 +18,4 @@ deepeval
 python-dotenv
 pydantic
 tqdm
+hf

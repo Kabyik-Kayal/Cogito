@@ -18,7 +18,8 @@ env/
 # Data (large files)
 data/chromadb/
 data/graph/*.pkl
-models/*.gguf
+*.gguf
+models/
 
 # Results
 results/*.json
@@ -34,3 +35,4 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
