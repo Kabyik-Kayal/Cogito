@@ -21,6 +21,8 @@ data/chromadb/
 data/graph/*.pkl
 *.gguf
 models/
+*.pkl
+db/graph/*.json
 
 # Results
 results/*.json
