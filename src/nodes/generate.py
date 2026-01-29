@@ -67,7 +67,7 @@ class GenerateNode:
         """
         
         # Combine all context
-        all_docs = document + graph_docs
+        all_docs = documents + graph_docs
         
         # Build context string
         context = "\n\n".join([f"[Document {i+1}]\n{doc}" for i, doc in enumerate(all_docs)])
@@ -117,7 +117,7 @@ class GenerateNode:
             # Extract generated text
             generated_text = response['choices'][0]['text'].strip()
             logger.info(f"Generated {len(generated_text)} characters")
-            logger.info(f"Priview: {generated_text[:100]}...")
+            logger.info(f"Preview: {generated_text[:100]}...")
 
             # Update state
             state.generation = generated_text
