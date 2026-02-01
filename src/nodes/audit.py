@@ -29,6 +29,7 @@ class AuditNode:
     """
 
     def __init__(self,
+                llm: Optional[Llama] = None,
                 model_path: Optional[str] = None,
                 n_ctx: int = 4096,
                 n_gpu_layers: int = -1,
@@ -38,25 +39,31 @@ class AuditNode:
         Initialize the audit node.
 
         Args:
-            model_path: Path to GGUF model (can be smaller/faster than main LLM)
+            llm: Optional shared LLM instance
+            model_path: Path to GGUF model (only used if llm is None)
             n_ctx: Context window size
             n_gpu_layers: GPU layers (-1 = all)
             temperature: 0.0 for deterministic verification
             max_tokens: Short response needed (just yes/no + reason)
         """
-        self.model_path = model_path or str(MISTRAL_GGUF_MODEL_PATH)
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        logger.info(f"Loading Audit LLM from {self.model_path}")
+        if llm is not None:
+            # Use shared LLM instance
+            self.llm = llm
+            logger.info("Using shared LLM instance for audit")
+        else:
+            # Load new LLM instance
+            self.model_path = model_path or str(MISTRAL_GGUF_MODEL_PATH)
+            logger.info(f"Loading Audit LLM from {self.model_path}")
 
-        try:
-            # Use same model as generation (can be optimized with smaller models)
-            self.llm = Llama(model_path=self.model_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers, verbose=False)
-            logger.info("Audit LLM loaded successfully")
-        
-        except Exception as e:
-            raise CustomException(f"Failed to load Audit LLM: {e}", sys)
+            try:
+                self.llm = Llama(model_path=self.model_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers, verbose=False)
+                logger.info("Audit LLM loaded successfully")
+            
+            except Exception as e:
+                raise CustomException(f"Failed to load Audit LLM: {e}", sys)
         
     
     def _build_audit_prompt(self, answer: str, documents: list, graph_docs: list) -> str:

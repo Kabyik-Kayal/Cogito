@@ -44,7 +44,7 @@ class VectorStore:
 
             # Load embedding model (Locally)
             logger.info(f"Loading embedding model: {embedding_model}")
-            self.embedding_model = SentenceTransformer(embedding_model)
+            self.embedding_model = SentenceTransformer(embedding_model, device="cpu")
 
             # Get or create collection
             self.collection = self.client.get_or_create_collection(

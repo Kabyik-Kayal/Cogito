@@ -28,32 +28,49 @@ class GenerateNode:
     Uses llama-cpp-python for inference
     """
     def __init__(self,
+        llm: Optional[Llama] = None,
         model_path: Optional[str] = None,
         n_ctx: int = 4096,
-        n_gpu_layers: Optional[int]=None,
+        n_gpu_layers: int = -1,
         temperature: float = 0.1,
         max_tokens: int = 512):
-
-        self.model_path = model_path or str(MISTRAL_GGUF_MODEL_PATH)
+        """
+        Initialize the generate node.
+        
+        Args:
+            llm: Optional shared LLM instance
+            model_path: Path to GGUF model (only used if llm is None)
+            n_ctx: Context window size
+            n_gpu_layers: GPU layers (-1 = all)
+            temperature: Generation temperature
+            max_tokens: Maximum tokens to generate
+        """
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        backend, n_gpu_layers = get_device()
-        logger.info(f"Auto-detected backend: {backend}")
-        logger.info(f"GPU Layers: {n_gpu_layers}")
-        logger.info(f"Loading LLM from {self.model_path}")
-        
-        try:
-            self.llm = Llama(
-                model_path = self.model_path,
-                n_ctx = n_ctx,
-                n_gpu_layers = n_gpu_layers,
-                verbose = True
-            )
-            logger.info("LLM loaded successfully")
-        
-        except Exception as e:
-            raise CustomException(f"Failed to load LLM: {e}", sys)
+        if llm is not None:
+            # Use shared LLM instance
+            self.llm = llm
+            logger.info("Using shared LLM instance for generation")
+        else:
+            # Load new LLM instance
+            self.model_path = model_path or str(MISTRAL_GGUF_MODEL_PATH)
+            backend, n_gpu_layers = get_device()
+            logger.info(f"Auto-detected backend: {backend}")
+            logger.info(f"GPU Layers: {n_gpu_layers}")
+            logger.info(f"Loading LLM from {self.model_path}")
+            
+            try:
+                self.llm = Llama(
+                    model_path = self.model_path,
+                    n_ctx = n_ctx,
+                    n_gpu_layers = n_gpu_layers,
+                    verbose = True
+                )
+                logger.info("LLM loaded successfully")
+            
+            except Exception as e:
+                raise CustomException(f"Failed to load LLM: {e}", sys)
         
     def _build_prompt(
         self,

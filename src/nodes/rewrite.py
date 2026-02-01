@@ -32,6 +32,7 @@ class RewriteNode:
     """
 
     def __init__(self,
+                llm: Optional[Llama] = None,
                 model_path: Optional[str] = None,
                 n_ctx: int = 4096,
                 n_gpu_layers: int = -1,
@@ -41,26 +42,34 @@ class RewriteNode:
         Initialize the rewrite node.
 
         Args:
-            model_path: Path to GGUF model
+            llm: Optional shared LLM instance
+            model_path: Path to GGUF model (only used if llm is None)
             n_ctx: Context window size
             n_gpu_layers: GPU layers (-1 = all)
             temperature: Low temp for focused rewriting
             max_tokens: Short rewrite needed
         """
-        self.model_path = model_path or str(MISTRAL_GGUF_MODEL_PATH)
         self.temperature = temperature
         self.max_tokens = max_tokens
-        logger.info(f"Loading Rewrite LLM from {self.model_path}")
 
-        try:
-            self.llm = Llama(
-                model_path=self.model_path,
-                n_ctx = n_ctx,
-                n_gpu_layers = n_gpu_layers,
-                verbose = False)
-            logger.info("Rewrite LLM loaded successfully")
-        except Exception as e:
-            raise CustomException(f"Failed to load Rewrite LLM: {e}", sys)
+        if llm is not None:
+            # Use shared LLM instance
+            self.llm = llm
+            logger.info("Using shared LLM instance for rewrite")
+        else:
+            # Load new LLM instance
+            self.model_path = model_path or str(MISTRAL_GGUF_MODEL_PATH)
+            logger.info(f"Loading Rewrite LLM from {self.model_path}")
+
+            try:
+                self.llm = Llama(
+                    model_path=self.model_path,
+                    n_ctx = n_ctx,
+                    n_gpu_layers = n_gpu_layers,
+                    verbose = False)
+                logger.info("Rewrite LLM loaded successfully")
+            except Exception as e:
+                raise CustomException(f"Failed to load Rewrite LLM: {e}", sys)
 
     def _build_rewrite_prompt(self,
                             original_question: str,
@@ -148,13 +157,13 @@ class RewriteNode:
         except Exception as e:
             raise CustomException(f"Query rewriting failed: {e}", sys)
     
-    def rewrite_node(state: GraphState) -> GraphState:
-        """
-        Standalone rewrite function for LangGraph.
-        Args:
-            state: Current graph state
-        Returns:
-            Updated state with rewritten question
-        """
-        rewriter = RewriteNode()
-        return rewriter(state)
+def rewrite_node(state: GraphState) -> GraphState:
+    """
+    Standalone rewrite function for LangGraph.
+    Args:
+        state: Current graph state
+    Returns:
+        Updated state with rewritten question
+    """
+    rewriter = RewriteNode()
+    return rewriter(state)
