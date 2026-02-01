@@ -12,6 +12,7 @@ sentence-transformers
 beautifulsoup4
 requests
 lxml
+markdown
 streamlit
 deepeval
 python-dotenv
