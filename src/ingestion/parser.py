@@ -7,6 +7,7 @@ Supports:
 2. reStructuredText (.rst)
 3. HTML files (.html)
 4. Plain text (.txt)
+5. PDF files (.pdf)
 
 Chunking Strategies:
 - Fixed-size chunks with overlap
@@ -28,6 +29,13 @@ from utils.logger import get_logger
 from utils.custom_exception import CustomException
 import sys
 
+# PDF support (optional)
+try:
+    import PyPDF2
+    PDF_SUPPORT = True
+except ImportError:
+    PDF_SUPPORT = False
+    
 logger = get_logger(__name__)
 
 
@@ -48,12 +56,12 @@ class DocumentParser:
     """
     Multi-format document parser with configurable chunking strategies.
     
-    Supports parsing local files (Markdown, RST, HTML, TXT) and
+    Supports parsing local files (Markdown, RST, HTML, TXT, PDF) and
     applying various chunking strategies for optimal RAG retrieval.
     """
     
     # Supported file extensions
-    SUPPORTED_EXTENSIONS = {'.md', '.markdown', '.rst', '.html', '.htm', '.txt'}
+    SUPPORTED_EXTENSIONS = {'.md', '.markdown', '.rst', '.html', '.htm', '.txt', '.pdf'}
     
     def __init__(
         self,
@@ -96,6 +104,8 @@ class DocumentParser:
             return 'html'
         elif ext == '.txt':
             return 'text'
+        elif ext == '.pdf':
+            return 'pdf'
         else:
             raise ValueError(f"Unsupported file type: {ext}")
     
@@ -119,6 +129,25 @@ class DocumentParser:
         content = re.sub(r'\*([^*]+)\*', r'\1', content)  # Italic
         content = re.sub(r'``([^`]+)``', r'\1', content)  # Inline code
         return content
+    
+    def _parse_pdf(self, file_path: Path) -> str:
+        """Parse PDF to plain text."""
+        if not PDF_SUPPORT:
+            raise ImportError("PyPDF2 is not installed. Install with: pip install PyPDF2")
+        
+        text_parts = []
+        try:
+            with open(file_path, 'rb') as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(page_text)
+        except Exception as e:
+            logger.warning(f"Error reading PDF {file_path}: {e}")
+            raise
+        
+        return '\n\n'.join(text_parts)
     
     def _parse_html(self, content: str) -> str:
         """Parse HTML to plain text."""
@@ -360,21 +389,26 @@ class DocumentParser:
             
             logger.info(f"Parsing file: {file_path}")
             
-            # Read file content
-            with open(path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Parse based on file type
+            # Detect file type
             file_type = self._detect_file_type(path)
             
-            if file_type == 'markdown':
-                text = self._parse_markdown(content)
-            elif file_type == 'rst':
-                text = self._parse_rst(content)
-            elif file_type == 'html':
-                text = self._parse_html(content)
-            else:  # plain text
-                text = content
+            # Handle PDF separately (binary file)
+            if file_type == 'pdf':
+                text = self._parse_pdf(path)
+            else:
+                # Read text file content
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Parse based on file type
+                if file_type == 'markdown':
+                    text = self._parse_markdown(content)
+                elif file_type == 'rst':
+                    text = self._parse_rst(content)
+                elif file_type == 'html':
+                    text = self._parse_html(content)
+                else:  # plain text
+                    text = content
             
             # Normalize
             text = self._normalize_text(text)

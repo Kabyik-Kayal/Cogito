@@ -1,0 +1,439 @@
+/* Cogito - Brutalist Terminal Design */
+
+/* ============================================================================
+   Reset & Base
+============================================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #000000;
+    color: #00FF00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ============================================================================
+   Header
+============================================================================ */
+
+.header {
+    text-align: center;
+    padding: 20px;
+    border-bottom: 1px solid #00FF00;
+}
+
+.ascii-logo {
+    color: #00FF00;
+    font-size: 10px;
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+
+@media (max-width: 600px) {
+    .ascii-logo {
+        font-size: 6px;
+    }
+}
+
+.tagline {
+    color: #00FF00;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.version {
+    color: #666666;
+    font-size: 12px;
+}
+
+/* ============================================================================
+   Navigation Tabs
+============================================================================ */
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #333333;
+    padding: 0 20px;
+}
+
+.tab {
+    background: none;
+    border: none;
+    color: #666666;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    padding: 15px 25px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+}
+
+.tab:hover {
+    color: #00FF00;
+}
+
+.tab.active {
+    color: #00FF00;
+    border-bottom: 2px solid #00FF00;
+}
+
+/* ============================================================================
+   Main Content
+============================================================================ */
+
+.main-content {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+h2 {
+    color: #00FF00;
+    font-size: 18px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #333333;
+}
+
+h3 {
+    color: #00FF00;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+/* ============================================================================
+   Section Boxes
+============================================================================ */
+
+.section-box {
+    border: 1px solid #00FF00;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: #0a0a0a;
+}
+
+.hint {
+    color: #666666;
+    font-size: 12px;
+    margin-bottom: 15px;
+}
+
+/* ============================================================================
+   Forms
+============================================================================ */
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    color: #00FF00;
+    font-size: 12px;
+}
+
+.form-group input,
+.form-group select {
+    background-color: #000000;
+    color: #00FF00;
+    border: 1px solid #00FF00;
+    padding: 10px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    box-shadow: 0 0 5px #00FF00;
+}
+
+.form-group input[type="file"] {
+    padding: 8px;
+}
+
+.form-group input[type="file"]::file-selector-button {
+    background-color: #000000;
+    color: #00FF00;
+    border: 1px solid #00FF00;
+    padding: 5px 10px;
+    font-family: 'Courier New', Courier, monospace;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.form-group input[type="file"]::file-selector-button:hover {
+    background-color: #00FF00;
+    color: #000000;
+}
+
+/* ============================================================================
+   Buttons
+============================================================================ */
+
+.btn {
+    background-color: #000000;
+    color: #00FF00;
+    border: 1px solid #00FF00;
+    padding: 12px 25px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+.btn:hover {
+    background-color: #00FF00;
+    color: #000000;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================================================
+   Status Box
+============================================================================ */
+
+.status-box {
+    margin-top: 15px;
+    padding: 15px;
+    border: 1px solid #333333;
+    background-color: #050505;
+}
+
+.status-box.success {
+    border-color: #00FF00;
+}
+
+.status-box.error {
+    border-color: #FF0000;
+    color: #FF0000;
+}
+
+.status-box.loading {
+    border-color: #FFFF00;
+    color: #FFFF00;
+}
+
+/* ============================================================================
+   Trace Display
+============================================================================ */
+
+#trace-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.trace-step {
+    padding: 8px 15px;
+    border-left: 2px solid #333333;
+    display: flex;
+    gap: 10px;
+}
+
+.trace-step.pass {
+    border-left-color: #00FF00;
+}
+
+.trace-step.fail {
+    border-left-color: #FF0000;
+}
+
+.trace-step.pending {
+    border-left-color: #FFFF00;
+}
+
+.trace-icon {
+    min-width: 20px;
+}
+
+.trace-icon.pass {
+    color: #00FF00;
+}
+
+.trace-icon.fail {
+    color: #FF0000;
+}
+
+.trace-icon.pending {
+    color: #FFFF00;
+}
+
+.trace-action {
+    color: #00FF00;
+    min-width: 120px;
+}
+
+.trace-details {
+    color: #666666;
+}
+
+/* ============================================================================
+   Answer Display
+============================================================================ */
+
+#answer-content {
+    padding: 15px;
+    border: 1px solid #00FF00;
+    background-color: #050505;
+    white-space: pre-wrap;
+    line-height: 1.8;
+}
+
+#status-badge {
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+#status-badge.verified {
+    color: #00FF00;
+    border: 1px solid #00FF00;
+}
+
+#status-badge.unverified {
+    color: #FF0000;
+    border: 1px solid #FF0000;
+}
+
+.sources-info {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #050505;
+    border: 1px solid #333333;
+    color: #666666;
+    font-size: 12px;
+}
+
+.retry-info {
+    margin-top: 10px;
+    color: #FFFF00;
+    font-size: 12px;
+}
+
+/* ============================================================================
+   System Status
+============================================================================ */
+
+#system-status {
+    margin-bottom: 15px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #333333;
+}
+
+.status-label {
+    color: #666666;
+}
+
+.status-value {
+    color: #00FF00;
+}
+
+.status-value.inactive {
+    color: #FF0000;
+}
+
+/* ============================================================================
+   Loading Overlay
+============================================================================ */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 2px solid #333333;
+    border-top: 2px solid #00FF00;
+    border-radius: 0; /* Keep it square for brutalist style */
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#loading-text {
+    color: #00FF00;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.5; }
+}
+
+/* ============================================================================
+   Utilities
+============================================================================ */
+
+.hidden {
+    display: none !important;
+}
+
+/* ============================================================================
+   Scrollbar
+============================================================================ */
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333333;
+    border: 1px solid #00FF00;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #00FF00;
+}

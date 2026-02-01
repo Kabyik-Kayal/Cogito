@@ -106,32 +106,34 @@ class IngestionPipeline:
         """Step 2: Build NetworkX graph from scraped nodes."""
         # Add all nodes to graph
         for node in nodes:
-            self.graph_store.add_node(node_id=node.node_id, content = node.content,
+            self.graph_store.add_node(node_id=node.node_id, content=node.content,
                                     section_type=node.section_type,
                                     metadata={**node.metadata, 'url': node.url})
-            logger.info(f"Added {len(nodes)} nodes to graph")
+        
+        logger.info(f"Added {len(nodes)} nodes to graph")
 
-            #Build edges from hyperlinks
-            # Create a URL -> node_id mapping for fast lookup
-            url_to_node = {}
-            for node in nodes:
-                url_to_node[node.url] = node.node_id
-            
-            edge_count = 0
-            for node in nodes:
-                for link_url in node.links:
-                    # Check if the linked URL was also scrapped
-                    if link_url in url_to_node:
-                        target_node_id = url_to_node[link_url]
-                        self.graph_store.add_edge(
-                                                source_id = node.node_id,
-                                                target_id = target_node_id,
-                                                relationship_type="hyperlink"
-                                                )
-                        edge_count += 1
-            logger.info(f"Added {edge_count} hyperlink edges to graph")
+        # Build edges from hyperlinks
+        # Create a URL -> node_id mapping for fast lookup
+        url_to_node = {}
+        for node in nodes:
+            url_to_node[node.url] = node.node_id
+        
+        edge_count = 0
+        for node in nodes:
+            for link_url in node.links:
+                # Check if the linked URL was also scrapped
+                if link_url in url_to_node:
+                    target_node_id = url_to_node[link_url]
+                    self.graph_store.add_edge(
+                                            source_id=node.node_id,
+                                            target_id=target_node_id,
+                                            relationship_type="hyperlink"
+                                            )
+                    edge_count += 1
+        
+        logger.info(f"Added {edge_count} hyperlink edges to graph")
 
-        #Save graph to disk
+        # Save graph to disk
         self.graph_store.save()
         logger.info(f"Graph saved with {self.graph_store.graph.number_of_nodes()} nodes, {self.graph_store.graph.number_of_edges()} edges")
         

@@ -13,10 +13,14 @@ beautifulsoup4
 requests
 lxml
 markdown
-streamlit
 deepeval
 python-dotenv
 pydantic
 tqdm
 hf
 "llama-cpp-python @ git+https://github.com/JamePeng/llama-cpp-python.git"
+fastapi
+uvicorn
+python-multipart
+jinja2
+PyPDF2

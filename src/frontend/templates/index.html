@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cogito - Self-Correcting RAG</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <pre class="ascii-logo">
+   ██████╗ ██████╗  ██████╗ ██╗████████╗ ██████╗ 
+  ██╔════╝██╔═══██╗██╔════╝ ██║╚══██╔══╝██╔═══██╗
+  ██║     ██║   ██║██║  ███╗██║   ██║   ██║   ██║
+  ██║     ██║   ██║██║   ██║██║   ██║   ██║   ██║
+  ╚██████╗╚██████╔╝╚██████╔╝██║   ██║   ╚██████╔╝
+   ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝   ╚═╝    ╚═════╝ 
+        </pre>
+        <p class="tagline">[ SELF-CORRECTING RAG SYSTEM ]</p>
+        <p class="version">v1.0.0 | Refuses to hallucinate.</p>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+        <button class="tab active" data-tab="ingest">> INGEST</button>
+        <button class="tab" data-tab="query">> QUERY</button>
+        <button class="tab" data-tab="status">> STATUS</button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- Ingest Tab -->
+        <section id="ingest-tab" class="tab-content active">
+            <h2>> DATA INGESTION</h2>
+
+            <div class="section-box">
+                <h3>> UPLOAD FILES</h3>
+                <p class="hint">Supported: PDF, MD, TXT, HTML</p>
+
+                <form id="upload-form" class="form">
+                    <div class="form-group">
+                        <label for="files">SELECT FILES:</label>
+                        <input type="file" id="files" name="files" multiple
+                            accept=".pdf,.md,.txt,.html,.htm,.markdown,.rst">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="upload-collection">COLLECTION:</label>
+                        <input type="text" id="upload-collection" value="cogito_docs">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="chunking">CHUNKING:</label>
+                        <select id="chunking">
+                            <option value="semantic">Semantic</option>
+                            <option value="fixed">Fixed</option>
+                            <option value="sliding">Sliding</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn">UPLOAD & PROCESS</button>
+                </form>
+
+                <div id="upload-status" class="status-box hidden"></div>
+            </div>
+
+            <div class="section-box">
+                <h3>> INGEST FROM URL</h3>
+                <p class="hint">Scrape documentation from a website</p>
+
+                <form id="url-form" class="form">
+                    <div class="form-group">
+                        <label for="url">URL:</label>
+                        <input type="url" id="url" placeholder="https://docs.example.com/">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="url-collection">COLLECTION:</label>
+                        <input type="text" id="url-collection" value="cogito_docs">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="max-pages">MAX PAGES:</label>
+                        <input type="number" id="max-pages" value="20" min="1" max="1000000">
+                    </div>
+
+                    <button type="submit" class="btn">START SCRAPING</button>
+                </form>
+
+                <div id="url-status" class="status-box hidden"></div>
+            </div>
+        </section>
+
+        <!-- Query Tab -->
+        <section id="query-tab" class="tab-content">
+            <h2>> QUERY INTERFACE</h2>
+
+            <div class="section-box">
+                <form id="query-form" class="form">
+                    <div class="form-group">
+                        <label for="question">ENTER QUERY:</label>
+                        <input type="text" id="question" placeholder="What is cudaMalloc?">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="query-collection">COLLECTION:</label>
+                        <input type="text" id="query-collection" value="cogito_docs">
+                    </div>
+
+                    <button type="submit" class="btn">EXECUTE</button>
+                </form>
+            </div>
+
+            <!-- Trace Display -->
+            <div id="trace-container" class="section-box hidden">
+                <h3>> EXECUTION TRACE</h3>
+                <div id="trace-steps"></div>
+            </div>
+
+            <!-- Answer Display -->
+            <div id="answer-container" class="section-box hidden">
+                <h3>> RESPONSE <span id="status-badge"></span></h3>
+                <div id="answer-content"></div>
+
+                <div class="sources-info">
+                    <span id="source-count"></span>
+                </div>
+
+                <div id="retry-info" class="retry-info hidden"></div>
+            </div>
+        </section>
+
+        <!-- Status Tab -->
+        <section id="status-tab" class="tab-content">
+            <h2>> SYSTEM STATUS</h2>
+
+            <div class="section-box">
+                <div id="system-status">
+                    <p>Loading status...</p>
+                </div>
+
+                <button id="refresh-status" class="btn">REFRESH</button>
+                <button id="init-btn" class="btn">INITIALIZE SYSTEM</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p id="loading-text">PROCESSING...</p>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

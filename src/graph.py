@@ -64,7 +64,7 @@ class CogitoGraph:
         logger.info("✓ Shared LLM loaded successfully")
 
         # Initialize nodes (retrieval nodes don't need LLM)
-        self.retrieve_node = RetrieveNode(collection_name=collection_name, top_k=3)
+        self.retrieve_node = RetrieveNode(collection_name=collection_name, top_k=10)
         self.graph_augment_node = GraphAugmentNode(depth=1, max_neighbors_per_node=3)
         
         # Pass the shared LLM to generation nodes

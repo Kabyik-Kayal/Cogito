@@ -89,13 +89,22 @@ class VectorStore:
                 for i, meta in enumerate(metadatas):
                     meta["node_id"] = node_ids[i]
             
-            # Add to ChromaDB
-            self.collection.add(
-                documents=documents,
-                embeddings=embeddings,
-                ids=node_ids,
-                metadatas=metadatas
-            )
+            # Add to ChromaDB in batches (max batch size is ~5000)
+            batch_size = 5000
+            total_added = 0
+            
+            for i in range(0, len(documents), batch_size):
+                batch_end = min(i + batch_size, len(documents))
+                
+                self.collection.add(
+                    documents=documents[i:batch_end],
+                    embeddings=embeddings[i:batch_end],
+                    ids=node_ids[i:batch_end],
+                    metadatas=metadatas[i:batch_end]
+                )
+                
+                total_added += (batch_end - i)
+                logger.info(f"Added batch {i//batch_size + 1}: {total_added}/{len(documents)} documents")
 
             logger.info(f"Added {len(documents)} documents. Total:{self.collection.count()}")
 

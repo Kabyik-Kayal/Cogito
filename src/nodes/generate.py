@@ -90,16 +90,21 @@ class GenerateNode:
         context = "\n\n".join([f"[Document {i+1}]\n{doc}" for i, doc in enumerate(all_docs)])
 
         # RAG prompt template
-        prompt = f"""You are a technical documentation assistant.
-        Answer the question based ONLY on the provided context.
-        If the context doesn't contain enough information to answer accurately,
-        say "I don't have enough information to answer this question."
+        prompt = f"""You are a technical documentation assistant. Your job is to answer questions accurately based on the provided context.
 
-        Context: {context}
+        INSTRUCTIONS:
+        1. Answer based ONLY on the provided context documents.
+        2. If the question contains a claim that CONTRADICTS the context, correct it clearly. For example, if the user claims "X is true" but the context says "X is false", say "Actually, according to the documentation, X is false."
+        3. If the question asks for information that is not in the context at all, say "I don't have enough information to answer this question."
+        4. Do NOT add information not present in the context.
+        5. Be direct and concise.
+
+        Context:
+        {context}
+
         Question: {question}
 
-        Answer: Provide a clear, accurate answer based solely on the context above. Do not add information not present in the context.
-        """
+        Answer:"""
         return prompt
 
     def __call__(self, state: GraphState) -> GraphState:

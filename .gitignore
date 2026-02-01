@@ -22,7 +22,10 @@ data/graph/*.pkl
 *.gguf
 models/
 *.pkl
-db/graph/*.json
+*.json
+*.sqlite3
+*.bin
+*.pickle
 
 # Results
 results/*.json

@@ -113,3 +113,71 @@ We are dropping the linear chain for a **Cyclic Graph**.
 * **Evaluation:**
 * *Resource:* [DeepEval Github](https://github.com/confident-ai/deepeval)
 * *Metric:* Look specifically at the `HallucinationMetric`.
+---
+
+### **6. Project Structure**
+
+```
+Cogito/
+├── .env                    # Environment variables
+├── .gitignore              # Git ignore rules
+├── readme.md               # Project documentation
+├── requirements.txt        # Python dependencies
+│
+├── config/                 # Configuration files
+│   ├── __init__.py
+│   └── paths.py            # Path configurations
+│
+├── data/                   # Raw and processed data
+│
+├── logs/                   # Application logs
+│
+├── models/                 # Downloaded GGUF models
+│
+├── results/                # Evaluation results
+│
+├── scripts/                # Executable scripts
+│   ├── evaluate.py         # Run evaluation pipeline
+│   └── ingest.py           # Run ingestion pipeline
+│
+├── src/                    # Main source code
+│   ├── __init__.py
+│   ├── graph.py            # LangGraph state machine
+│   ├── state.py            # State definitions
+│   │
+│   ├── db/                 # Database layer
+│   │   ├── __init__.py
+│   │   ├── graph_store.py  # NetworkX graph storage
+│   │   └── vector_store.py # ChromaDB vector storage
+│   │
+│   ├── evaluation/         # Evaluation metrics
+│   │   ├── __init__.py
+│   │   ├── evaluator.py    # DeepEval integration
+│   │   └── metrics.py      # Custom metrics
+│   │
+│   ├── frontend/           # Streamlit UI
+│   │   ├── __init__.py
+│   │   └── app.py          # Main Streamlit app
+│   │
+│   ├── ingestion/          # Data ingestion pipeline
+│   │   ├── __init__.py
+│   │   ├── parser.py       # Document parsing
+│   │   ├── pipeline.py     # Ingestion orchestration
+│   │   └── scraper.py      # Documentation scraper
+│   │
+│   ├── model/              # LLM model management
+│   │   ├── __init__.py
+│   │   └── download_models.py  # GGUF model downloader
+│   │
+│   └── nodes/              # LangGraph nodes (agents)
+│       ├── __init__.py
+│       ├── audit.py        # AuditNode - claim verification
+│       ├── generate.py     # GenerateNode - answer drafting
+│       ├── graph_augment.py # GraphAugmentNode - graph expansion
+│       ├── retrieve.py     # RetrieveNode - vector search
+│       └── rewrite.py      # RewriteNode - query rewriting
+│
+└── utils/                  # Utility modules
+    ├── custom_exception.py # Custom exception handling
+    └── logger.py           # Logging configuration
+```
