@@ -513,7 +513,7 @@ async def ingest_from_url(request: IngestURLRequest, background_tasks: Backgroun
                 await asyncio.sleep(0.1)  # Allow UI to update
                 
                 # Load existing graph to append (auto_load=True loads from disk if exists)
-                graph_store = GraphStore(collection_name=collection, auto_load=True)
+                graph_store = GraphStore(collection_name=request.collection, auto_load=True)
                 existing_stats = graph_store.get_stats()
                 
                 if existing_stats["num_nodes"] > 0:
@@ -593,7 +593,7 @@ async def ingest_from_url(request: IngestURLRequest, background_tasks: Backgroun
                 add_activity("Phase 3/4: VECTOR STORAGE started")
                 await asyncio.sleep(0.1)
                 
-                add_activity("Loading embedding model (MPS)...")
+                add_activity("Loading embedding model...")
                 app_state.ingestion_status[job_id].update({
                     "progress": 74,
                     "message": "Loading embedding model..."
