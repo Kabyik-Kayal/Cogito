@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Tuple, Optional
 from urllib.parse import urljoin, urlparse
+from collections import deque
 import time
 import hashlib
 from utils.logger import get_logger
@@ -59,11 +60,54 @@ class DocumentationScraper:
         self.delay = delay
         self.visited_urls = set()
         self.nodes = []
+        self.url_queue = deque()  # For step-by-step scraping
 
         # Parse base domain for filtering links
         self.base_domain = urlparse(base_url).netloc
 
         logger.info(f"Scraper initialized: {base_url}")
+    
+    def _init_scrape(self, start_url: Optional[str] = None) -> None:
+        """Initialize the scraping queue for step-by-step processing."""
+        url = start_url or self.base_url
+        self.url_queue = deque([url])
+        self.visited_urls = set()
+        self.nodes = []
+    
+    def _scrape_page(self, url: str) -> List['DocumentNode']:
+        """
+        Scrape a single page and add new URLs to the queue.
+        
+        Args:
+            url: URL to scrape
+            
+        Returns:
+            List of DocumentNode objects from this page
+        """
+        if not self._is_valid_url(url):
+            return []
+        
+        self.visited_urls.add(url)
+        
+        # Fetch page
+        soup = self._fetch_page(url)
+        if not soup:
+            return []
+        
+        # Extract sections
+        page_nodes = self._extract_sections(soup, url)
+        self.nodes.extend(page_nodes)
+        
+        # Find new links to visit
+        for link in soup.find_all('a', href=True):
+            full_url = urljoin(url, link['href'])
+            if self._is_valid_url(full_url) and full_url not in self.url_queue:
+                self.url_queue.append(full_url)
+        
+        # Delay between requests
+        time.sleep(self.delay)
+        
+        return page_nodes
 
     def _generate_node_id(self, url:str, content:str) -> str:
         """Generate a unique node ID from URL and content hash."""
