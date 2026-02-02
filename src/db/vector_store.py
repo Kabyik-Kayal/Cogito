@@ -13,6 +13,7 @@ from sentence_transformers import SentenceTransformer
 from config.paths import CHROMA_DB_DIR
 from utils.logger import get_logger
 from utils.custom_exception import CustomException
+from utils.gpu_selector import get_device
 import sys
 import gc
 import torch
@@ -54,9 +55,10 @@ class VectorStore:
                 settings=Settings(anonymized_telemetry=False)
             )
 
-            # Load embedding model (Using MPS for Apple Silicon acceleration)
-            logger.info(f"Loading embedding model: {embedding_model}")
-            self.embedding_model = SentenceTransformer(embedding_model, device="mps")
+            # Auto-detect device (MPS, CUDA, XPU, or CPU)
+            self.device, self.gpu = get_device()
+            logger.info(f"Loading embedding model: {embedding_model} on device: {self.device}")
+            self.embedding_model = SentenceTransformer(embedding_model, device=self.device)
 
             # Get or create collection
             self.collection = self.client.get_or_create_collection(
@@ -134,9 +136,14 @@ class VectorStore:
                 del self.embedding_model
                 self.embedding_model = None
                 
-                # Clear GPU/MPS memory
-                if torch.backends.mps.is_available():
-                    torch.mps.empty_cache()
+                # Clear GPU memory based on device type
+                if hasattr(self, 'device'):
+                    if self.device == "mps" and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                        torch.mps.empty_cache()
+                    elif self.device == "cuda" and torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    elif self.device == "xpu" and hasattr(torch, 'xpu') and torch.xpu.is_available():
+                        torch.xpu.empty_cache()
                 gc.collect()
                 
                 logger.info("Embedding model unloaded, memory freed")

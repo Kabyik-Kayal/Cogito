@@ -20,6 +20,7 @@ from src.nodes.rewrite import RewriteNode
 from config.paths import MISTRAL_GGUF_MODEL_PATH
 from utils.gpu_selector import get_device
 from utils.logger import get_logger
+import traceback
 
 logger = get_logger(__name__)
 
@@ -55,12 +56,32 @@ class CogitoGraph:
         logger.info(f"Auto-detected backend: {backend}")
         logger.info(f"GPU Layers: {n_gpu_layers}")
         
-        self.shared_llm = Llama(
-            model_path=str(MISTRAL_GGUF_MODEL_PATH),
-            n_ctx=4096,
-            n_gpu_layers=n_gpu_layers,
-            verbose=False
-        )
+        try:
+            import os
+            model_path = str(MISTRAL_GGUF_MODEL_PATH)
+            logger.info(f"Model path: {model_path}")
+            logger.info(f"Model file exists: {os.path.exists(model_path)}")
+            
+            if os.path.exists(model_path):
+                file_size = os.path.getsize(model_path) / (1024**3)  # GB
+                logger.info(f"Model file size: {file_size:.2f} GB")
+            else:
+                raise FileNotFoundError(f"Model file not found at: {model_path}")
+            
+            logger.info(f"Attempting to load model with backend={backend}, n_gpu_layers={n_gpu_layers}")
+            self.shared_llm = Llama(
+                model_path=model_path,
+                n_ctx=4096,
+                n_gpu_layers=n_gpu_layers,
+                verbose=True  # Enable verbose logging to see detailed errors
+            )
+            logger.info("✓ Shared LLM loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load model: {type(e).__name__}: {str(e)}")
+            logger.error(f"Model path attempted: {MISTRAL_GGUF_MODEL_PATH}")
+            logger.error(f"Backend: {backend}, GPU layers: {n_gpu_layers}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+            raise
         logger.info("✓ Shared LLM loaded successfully")
 
         # Initialize nodes (retrieval nodes don't need LLM)
