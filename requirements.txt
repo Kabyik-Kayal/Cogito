@@ -18,9 +18,9 @@ python-dotenv
 pydantic
 tqdm
 hf
-"llama-cpp-python @ git+https://github.com/JamePeng/llama-cpp-python.git"
 fastapi
 uvicorn
 python-multipart
 jinja2
 PyPDF2
+llama-cpp-python @ git+https://github.com/JamePeng/llama-cpp-python.git

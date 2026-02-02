@@ -1,183 +1,154 @@
-# Cogito - Self Correcting Graph RAG
+# COGITO - Self Correcting RAG
 
-### **1. The Project Definition**
-
-**Goal:** Build a RAG system that *refuses* to answer if it cannot verify the facts, rather than hallucinating.
-**The "Hard" Dataset:** Do not use Wikipedia or generic news. Use **NVIDIA CUDA Documentation** or **Kubernetes Docs**.
-
-* *Why?* They are highly technical, version-dependent, and heavily cross-referenced. Standard RAG fails here because it mixes up API versions (e.g., v1.2 vs v1.22).
-
----
-
-### **2. The Architecture (The "State Machine")**
-
-We are dropping the linear chain for a **Cyclic Graph**.
-
-#### **Nodes (The Agents):**
-
-1. **`RetrieveNode`**: Fetches raw chunks from the Vector DB.
-2. **`GraphAugmentNode`**: Uses NetworkX to find "neighboring" chunks (e.g., if you retrieve "Function A", this node forces retrieval of "Function A's Parameters" even if vector similarity missed it).
-3. **`GenerateNode`**: Drafts the initial answer.
-4. **`AuditNode` (The Differentiator)**:
-* Extracts claims from the draft.
-* Checks: *Is this claim supported by the retrieved text?*
-* Output: `Pass`, `Fail`, or `Needs_Correction`.
+> *"The first principle is that you must not fool yourself — and you are the easiest person to fool."* — Richard Feynman
 
 
-5. **`RewriteNode`**: If Audit fails, this node strips the unsupported claims or rewrites the query to find better proof.
+![Cogito Interface](assets/demo.png)
 
-#### **Edges (The Logic):**
+## The Problem with Parrots
+You see, standard language models are a bit like very well-read parrots. You ask them, "What is the capital of France?" and they say "Paris!" because they've heard it a million times. It's wonderful.
 
-* `Start` → `Retrieve` → `GraphAugment` → `Generate` → `Audit`
-* **IF** `Audit` == `Pass` → `End`
-* **IF** `Audit` == `Fail` → `Rewrite` → `Retrieve` (Loop back)
+But if you ask them something trickier, something technical like "How do I configure the memory pool in CUDA 12.1?"... well, sometimes they just *guess*. They put words together that sound right, like a parrot mimicking a scientist. But the parrot doesn't understand physics! It just knows the rhythm of the words. In our business, we call this a "hallucination," but really, it's just confident guessing.
 
----
+And that is a catastrophe if you are trying to build software. You don't want a guess; you want the truth.
 
-### **3. The Tech Stack**
+## Trust but Verify
+So, how do we fix this? We don't just make the brain bigger. We change how it thinks. We build a machine that acts less like a parrot and more like a scientist.
 
-* **Orchestration:** **LangGraph**. (Mandatory. It is the Python framework for state machines).
-* **Vector DB:** **ChromaDB**. (Local, fast, widely used).
-* **Graph "DB":** **NetworkX**.
-* *Clarification:* You will not use this as a persistent database (that’s Neo4j). You will use NetworkX to **build the graph in memory** during ingestion to map relationships (Parent <-> Child documents), then save this structure as a Python pickle or JSON. This proves you understand Graph Theory without needing a heavy Java server like Neo4j.
+A scientist doesn't just blurt out the first thing that comes to mind. A scientist does research. They look things up. They check their sources. And—this is the most important part—if the facts don't match their theory, they throw the theory out and start again.
 
+**Cogito** is a "Self-Correcting Graph RAG." That's a fancy name for a simple three-step process:
+1.  **Draft** an answer based on what we read.
+2.  **Audit** that answer to see if it's actually supported by the text.
+3.  **Rewrite** it if we were lying.
 
-* **Model Serving:** **vLLM** or **Llama.cpp Server**.
-* *The Move:* Don't just use Ollama. Run a **quantized (GGUF)** version of `Mistral-7B-Instruct` or `Llama-3-8B`. This aligns with your interest in quantization.
+## How It Works (The Machinery)
+We don't use a straight line for this. A straight line is "Retrieval -> Generation -> Done." That's the old way. We use a **Loop**.
 
+Imagine a room with four people in it:
 
-* **Evaluation:** **DeepEval**. (It is currently sharper than Ragas for specific "Hallucination" metrics).
+### 1. The Researcher (`RetrieveNode`)
+This fellow runs to the library (our Vector Database) and grabs a handful of books that look relevant. "Here!" he says, "This book mentions CUDA memory!"
 
----
+### 2. The Connector (`GraphAugmentNode`)
+This one is clever. She knows that knowledge is connected. If the Researcher brings a page about "Function A," she says, "Wait a minute, you can't understand Function A without knowing about its Parameters, which are on *this other page*." She follows the links (the Graph) and grabs the extra context the Researcher missed.
 
-### **4. The Roadmap (4 Weeks to MVP)**
+### 3. The Writer (`GenerateNode`)
+He takes all these pages and writes a draft answer. "Based on this text, you configure the memory pool like this..."
 
-#### **Phase 1: The "Smart" Ingestion (Data Engineering)**
+### 4. The Auditor (`AuditNode`) - The Most Important Person
+This is our strict professor. He looks at the Writer's draft, and he looks at the source text, and he asks one question: *"Can you prove it?"*
 
-* **Task:** Scrape the documentation.
-* **The Twist:** Don't just chunk text.
-* Create **Nodes** for every Section Header.
-* Create **Edges** for every Hyperlink in the HTML.
-* *Outcome:* You have a NetworkX graph where `Node A` (API Overview) connects to `Node B` (Code Example).
+If the Writer says "X is true," but the text doesn't say that, the Auditor slams his hand on the table. **"FAIL!"** he says. "Go back and do it again!"
 
+And so, the Writer has to rewrite the query, the Researcher goes back to the library, and they try again. They keep trying until they get it right, or until they admit they just don't know.
 
-* **Store:** Embed the text into ChromaDB, but store the `Graph_Node_ID` as metadata.
+## The Parts List (Tech Stack)
+To build this machine, we used some very specific tools:
 
-#### **Phase 2: The Graph-Augmented Retrieval**
+*   **LangGraph**: This is the conductor. It manages the state—who speaks when, and who passes papers to whom. It turns our flowchart into code.
+*   **ChromaDB**: The filing cabinet. It stores the text chunks so we can find them by meaning (vector search).
+*   **NetworkX**: The map. It remembers how documents link to each other (hyperlinks, sections). This is how we find the "hidden" connections.
+*   **Llama.cpp**: The brain. We're using local, quantized models (like Mistral or Llama 3) because you don't need a supercomputer to check facts—you just need a sharp one.
+*   **DeepEval**: The scorecard. It measures how often we tell the truth.
 
-* **Task:** Write the retrieval logic.
-* **Logic:**
-1. Vector Search: Get top 3 chunks.
-2. Graph Expansion: Look up those 3 chunks in your NetworkX graph. Grab their "Children" or "Linked" nodes.
-3. Context Window: Feed *both* the vector results and the graph neighbors to the LLM.
+## The Blueprints (Technical details)
+For those who want to see the engine block, here is how we wired it up.
 
+### 1. The Map Legend (Graph Schema)
+When we say "Graph," we don't mean a pretty picture. We mean a specific data structure in `NetworkX`.
+*   **Nodes**: represent distinct *chunks of knowledge*.
+    *   `ID`: The file path or header (e.g., `docs/cuda_api.html#memory-pool`).
+    *   `Content`: The actual text.
+    *   `Type`: Is it a Code Block? A Concept? A Warning?
+*   **Edges**: represent *relationships*.
+    *   `PARENT_OF`: A section header owns its paragraphs.
+    *   `LINKS_TO`: An HTML hyperlink found in the text.
+    *   `MENTIONS`: If chunk A talks about "Texture Memory," and chunk B defines it.
 
-* **Why this wins:** You solve the "Missing Context" problem. Vector search finds the *name* of the function; Graph search finds the *parameters* listed in the next paragraph.
+### 2. The Professor's Rubric (Audit Logic)
+The **Auditor** (`AuditNode`) isn't magic; it's a prompt with a very low temperature (`0.0`). We don't want creativity here; we want cold, hard logic.
+The logic flows like this:
+1.  **Extract Claims**: "The draft says: *'Use cudaMallocManaged for unified memory.'*"
+2.  **Verify**: Search the retrieved context for that exact rule.
+3.  **Verdict**:
+    *   **PASS**: The text explicitly supports the claim.
+    *   **FAIL**: The text contradicts it, or is silent.
 
-#### **Phase 3: The Hallucination Auditor (The "Grader")**
+### 3. The Lab Layout (Project Structure)
+Here is where we keep everything. I've labeled the important bits.
 
-* **Task:** Build the `AuditNode`.
-* **Implementation:**
-* **Prompt Engineering:** "You are a QA Auditor. Here is a generated sentence. Here is the source text. Does the source text explicitly support the sentence? Answer YES/NO."
-* **Optimization:** Use a *smaller*, faster model for this (e.g., `Llama-3-8B-Quantized`) to keep latency low.
-* **Fail-safe:** If the answer is "NO", the loop triggers.
-
-
-
-#### **Phase 4: The Interface & Eval**
-
-* **Frontend:** **Streamlit**.
-* *Design:* Brutalist. Black background (`#000000`), neon green terminal text (`#00FF00`), sharp borders (`1px solid white`), no rounded corners.
-* *Feature:* Show the "Trace". Display: "Draft 1 (Failed Audit) -> Searching Again... -> Draft 2 (Passed)".
-
-
-* **Evaluation:** Run a dataset of 50 questions. Compare "Standard RAG" vs "Cogito".
-* *Metric:* "Faithfulness" (from DeepEval).
-
-
-
----
-
-### **5. Resources to Learn**
-
-* **LangGraph Official Tutorial:**
-* *Resource:* [LangGraph: Adaptive RAG](https://langchain-ai.github.io/langgraph/tutorials/rag/langgraph_adaptive_rag/)
-* *Focus:* This is the bible for this project. Copy the patterns, but change the data.
-
-
-* **NetworkX for RAG:**
-* *Concept:* Search for "GraphRAG with NetworkX".
-* *Code Pattern:* Learn `nx.node_link_graph` to save/load your graph structure.
-
-
-* **Evaluation:**
-* *Resource:* [DeepEval Github](https://github.com/confident-ai/deepeval)
-* *Metric:* Look specifically at the `HallucinationMetric`.
----
-
-### **6. Project Structure**
-
-```
+```text
 Cogito/
-├── .env                    # Environment variables
-├── .gitignore              # Git ignore rules
-├── readme.md               # Project documentation
-├── requirements.txt        # Python dependencies
-│
 ├── config/                 # Configuration files
-│   ├── __init__.py
-│   └── paths.py            # Path configurations
-│
-├── data/                   # Raw and processed data
-│
-├── logs/                   # Application logs
-│
-├── models/                 # Downloaded GGUF models
-│
-├── results/                # Evaluation results
-│
-├── scripts/                # Executable scripts
-│   ├── evaluate.py         # Run evaluation pipeline
-│   └── ingest.py           # Run ingestion pipeline
-│
-├── src/                    # Main source code
-│   ├── __init__.py
-│   ├── graph.py            # LangGraph state machine
-│   ├── state.py            # State definitions
-│   │
-│   ├── db/                 # Database layer
-│   │   ├── __init__.py
-│   │   ├── graph_store.py  # NetworkX graph storage
-│   │   └── vector_store.py # ChromaDB vector storage
-│   │
-│   ├── evaluation/         # Evaluation metrics
-│   │   ├── __init__.py
-│   │   ├── evaluator.py    # DeepEval integration
-│   │   └── metrics.py      # Custom metrics
-│   │
-│   ├── frontend/           # Streamlit UI
-│   │   ├── __init__.py
-│   │   └── app.py          # Main Streamlit app
-│   │
-│   ├── ingestion/          # Data ingestion pipeline
-│   │   ├── __init__.py
-│   │   ├── parser.py       # Document parsing
-│   │   ├── pipeline.py     # Ingestion orchestration
-│   │   └── scraper.py      # Documentation scraper
-│   │
-│   ├── model/              # LLM model management
-│   │   ├── __init__.py
-│   │   └── download_models.py  # GGUF model downloader
-│   │
-│   └── nodes/              # LangGraph nodes (agents)
-│       ├── __init__.py
-│       ├── audit.py        # AuditNode - claim verification
-│       ├── generate.py     # GenerateNode - answer drafting
-│       ├── graph_augment.py # GraphAugmentNode - graph expansion
-│       ├── retrieve.py     # RetrieveNode - vector search
-│       └── rewrite.py      # RewriteNode - query rewriting
-│
-└── utils/                  # Utility modules
-    ├── custom_exception.py # Custom exception handling
-    └── logger.py           # Logging configuration
+│   └── paths.py            # Path constants (Model paths, DB paths)
+├── data/                   # The Raw Materials (PDFs, HTML)
+├── models/                 # The Brains (GGUF files go here)
+├── scripts/
+│   ├── evaluate.py         # Run the DeepEval metrics suite
+│   └── ingest.py           # The Librarian (Scrapes & Indexes data)
+├── src/
+│   ├── db/                 # Database Interfaces
+│   │   ├── graph_store.py  # NetworkX wrapper (saves/loads pickle)
+│   │   └── vector_store.py # ChromaDB wrapper
+│   ├── evaluation/
+│   │   ├── evaluator.py    # DeepEval integration logic
+│   │   └── metrics.py      # Custom faithfulness/hallucination metrics
+│   ├── frontend/
+│   │   └── app.py          # The Streamlit Dashboard
+│   ├── ingestion/
+│   │   ├── parser.py       # Chunking & Node creation logic
+│   │   ├── pipeline.py     # Orchestrates scraping -> graph -> db
+│   │   └── scraper.py      # Fetches raw documentation
+│   ├── nodes/              # The Workers (LangGraph Nodes)
+│   │   ├── audit.py        # The Professor (Hallucination Checker)
+│   │   ├── generate.py     # The Writer (Drafts answers)
+│   │   ├── graph_augment.py# The Connector (Expands context)
+│   │   ├── retrieve.py     # The Researcher (Vector Search)
+│   │   └── rewrite.py      # The Editor (Fixes bad queries)
+│   ├── graph.py            # The Conductor (The State Machine definition)
+│   └── state.py            # The Data Schema (GraphState TypedDict)
+└── utils/                  # The Wrenches
+    ├── custom_exception.py
+    └── logger.py           # Centralized logging
 ```
+
+## How to Play with It
+
+First, you need to set up your lab.
+
+### 0. Get the Resources
+```bash
+git clone "https://github.com/Kabyik-Kayal/Cogito.git"
+cd Cogito
+```
+
+### 1. Install the Equipment
+```bash
+conda create -n cogito python=3.11
+conda activate cogito
+pip install uv
+uv pip install -r requirements.txt
+```
+
+### 2. Run the Machine
+Now, start the "State Machine." This spins up the little society of agents and gives you a web interface to watch them work.
+```bash
+uvicorn src.frontend.app:app --reload
+```
+You can upload documents into the database or provide links to scrape data.
+
+![Cogito Ingestion Interface](assets/Ingestion.png)
+
+When you ask a question, watch the logs. You will see the **Audit** happen. You will see it **Fail**. And you will see it **Correct Itself**. Or answer explicitly that it **Lacks** the information to answer, instead of **Hallucinating**.
+
+![Cogito Ingestion Interface](assets/Generation.png)
+
+It is a beautiful thing to watch a machine admit it was wrong.
+
+You can also find the info of the available Collections, initialize them before hand to reduce the first query time, or delete the collections completely.
+
+![Cogito Ingestion Interface](assets/Information.png)
+
+---
+*"Nature cannot be fooled."*
