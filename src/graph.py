@@ -65,10 +65,10 @@ class CogitoGraph:
 
         # Initialize nodes (retrieval nodes don't need LLM)
         self.retrieve_node = RetrieveNode(collection_name=collection_name, top_k=10)
-        self.graph_augment_node = GraphAugmentNode(depth=1, max_neighbors_per_node=3)
+        self.graph_augment_node = GraphAugmentNode(collection_name=collection_name, depth=1, max_neighbors_per_node=3)
         
         # Pass the shared LLM to generation nodes
-        self.generate_node = GenerateNode(llm=self.shared_llm, temperature=0.1, max_tokens=512)
+        self.generate_node = GenerateNode(llm=self.shared_llm, temperature=0.1, max_tokens=2048)
         self.audit_node = AuditNode(llm=self.shared_llm, temperature=0.0, max_tokens=150)
         self.rewrite_node = RewriteNode(llm=self.shared_llm, temperature=0.3, max_tokens=100)
         
@@ -177,3 +177,11 @@ class CogitoGraph:
         logger.info(f"Answer: {response['answer'][:100]}...")
 
         return response
+
+    def run_with_updates(self, question: str):
+        """
+        Yields events as the graph executes.
+        Used for providing progress updates to the UI.
+        """
+        inputs = {"question": question, "documents": [], "generation": "", "audit_status": "pending"}
+        return self.graph.stream(inputs, stream_mode='updates')

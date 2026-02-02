@@ -37,12 +37,39 @@ class GraphStore:
         - relationship_type: Type of connection (parent_child, hyperlink, reference)
     """
 
-    def __init__(self):
+    def __init__(self, collection_name: str = "default", auto_load: bool = True):
         """
-        Initialize an empty directed graph.
+        Initialize the graph store for a specific collection.
+        
+        Args:
+            collection_name: Name of the collection (creates separate graph file per collection)
+            auto_load: If True, attempt to load existing graph from disk.
+                      If no saved graph exists, creates an empty graph.
         """
+        # Sanitize collection name for file system compatibility
+        import re
+        sanitized_name = re.sub(r'[^a-zA-Z0-9._-]', '_', collection_name)
+        sanitized_name = re.sub(r'^[^a-zA-Z0-9]+', '', sanitized_name)
+        sanitized_name = re.sub(r'[^a-zA-Z0-9]+$', '', sanitized_name)
+        if len(sanitized_name) < 3:
+            sanitized_name = sanitized_name + "_collection"
+        
+        self.collection_name = sanitized_name
         self.graph = nx.DiGraph()
-        logger.info("GraphStore initialized with an empty graph")
+        
+        # Compute collection-specific paths
+        self.graph_path = GRAPH_STORE_DIR / f"graph_{sanitized_name}.pkl"
+        self.metadata_path = GRAPH_STORE_DIR / f"graph_{sanitized_name}_metadata.json"
+        
+        if auto_load and self.graph_path.exists():
+            try:
+                self.load()
+            except Exception as e:
+                logger.warning(f"Could not load saved graph for '{collection_name}': {e}. Starting with empty graph.")
+                self.graph = nx.DiGraph()
+                logger.info(f"GraphStore initialized with an empty graph for collection '{collection_name}'")
+        else:
+            logger.info(f"GraphStore initialized with an empty graph for collection '{collection_name}'")
     
     def add_node(self, node_id: str, content: str,
                 section_type: str="paragraph", metadata: Optional[Dict[str, Any]]=None):
@@ -144,10 +171,10 @@ class GraphStore:
         Save the graph to disk as a pickle file.
 
         Arg:
-            path: Custom save path (defaults to config.paths.GRAPH_PICKLE_PATH)
+            path: Custom save path (defaults to collection-specific path)
         """
         try:
-            save_path = path or GRAPH_PICKLE_PATH
+            save_path = path or self.graph_path
             GRAPH_STORE_DIR.mkdir(parents=True, exist_ok=True)
             logger.info(f"Saving graph to {save_path}")
             with open(save_path, 'wb') as f:
@@ -155,12 +182,13 @@ class GraphStore:
             
             # Save metadata as JSON for human readability
             metadata = {
+                "collection": self.collection_name,
                 "num_nodes": self.graph.number_of_nodes(),
                 "num_edges": self.graph.number_of_edges(),
                 "node_types": self._get_node_type_counts()
             }
 
-            with open(GRAPH_METADATA_PATH, 'w') as f:
+            with open(self.metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             logger.info(f"Graph saved: {metadata['num_nodes']} nodes, {metadata['num_edges']} edges")
         
@@ -172,10 +200,10 @@ class GraphStore:
         Load the graph from the disk.
 
         Args:
-            path: Custom load path (defaults to config.paths.GRAPH_PICKLE_PATH)
+            path: Custom load path (defaults to collection-specific path)
         """
         try:
-            load_path = path or GRAPH_PICKLE_PATH
+            load_path = path or self.graph_path
 
             if not load_path.exists():
                 raise FileNotFoundError(f"Graph file not found: {load_path}")
@@ -185,7 +213,7 @@ class GraphStore:
             with open(load_path, 'rb') as f:
                 self.graph = pickle.load(f)
 
-            logger.info(f"Graph loaded: {self.graph.number_of_nodes} nodes, {self.graph.number_of_edges()} edges")
+            logger.info(f"Graph loaded: {self.graph.number_of_nodes()} nodes, {self.graph.number_of_edges()} edges")
         
         except Exception as e:
             raise CustomException(f"Failed to load graph: {e}", sys)
@@ -201,6 +229,30 @@ class GraphStore:
             "is_directed":self.graph.is_directed(),
             "available_degree": sum(dict(self.graph.degree()).values())/max(self.graph.number_of_nodes(),1)
         }
+    
+    def delete_graph(self) -> None:
+        """
+        Permanently delete the graph files from disk.
+        """
+        try:
+            deleted = []
+            
+            if self.graph_path.exists():
+                self.graph_path.unlink()
+                deleted.append("graph pickle")
+                logger.info(f"Deleted graph file: {self.graph_path}")
+            
+            if self.metadata_path.exists():
+                self.metadata_path.unlink()
+                deleted.append("metadata")
+                logger.info(f"Deleted graph metadata: {self.metadata_path}")
+            
+            # Clear in-memory graph
+            self.graph.clear()
+            
+            logger.info(f"Graph '{self.collection_name}' deleted permanently")
+        except Exception as e:
+            raise CustomException(f"Failed to delete graph: {e}", sys)
 
     def _get_node_type_counts(self) -> Dict[str,int]:
         type_counts = {}

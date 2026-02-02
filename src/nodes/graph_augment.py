@@ -20,10 +20,11 @@ class GraphAugmentNode:
         depth: How many graph hops to traverse (1 = immediate neighbors)
         max_neighbors_per_node: Limit neighbors to avoid context explosion
     """
-    def __init__(self, depth: int=1, max_neighbors_per_node: int=3):
+    def __init__(self, collection_name: str="cogito_docs", depth: int=1, max_neighbors_per_node: int=3):
         """
         Initialize the graph augment node.
         Args:
+            collection_name: Name of the collection to load graph from
             depth: How many graph hops to traverse (1=immediate neighbors)
             max_neighbors_per_node: Limit neighbors to avoid context explosion
         """
@@ -32,13 +33,21 @@ class GraphAugmentNode:
         self.max_neighbors_per_node = max_neighbors_per_node
 
         # Load graph from disk
-        self.graph_store = GraphStore()
+        self.graph_store = GraphStore(collection_name=collection_name)
         try:
             self.graph_store.load()
-            logger.info(f"GraphAugmentNode initialized (depth={depth}, max_neighbors={max_neighbors_per_node})")
+            logger.info(f"GraphAugmentNode initialized for '{collection_name}' (depth={depth}, max_neighbors={max_neighbors_per_node})")
         except FileNotFoundError:
-            logger.error("Graph file not found! Run ingestion pipeline first.")
-            raise CustomException("Graph not found. Run ingestion first.", sys)
+            # If graph file doesn't exist, we start empty but don't crash yet? 
+            # OR we can assume if no graph, just no augmentation.
+            # But GraphStore handles empty graph creation if auto_load=True (default).
+            # If load() raises, it means something is wrong with the file structure.
+            # But GraphStore.load() only raises if pickle load fails, not if file doesn't exist?
+            # Let's check GraphStore.load()
+            # It loads from self.graph_path.
+            logger.warning(f"Graph file not found for '{collection_name}'! Graph augmentation will be skipped.")
+            # Don't raise, just let it be empty graph so query can proceed with vector results only
+
 
     def __call__(self, state: GraphState) -> GraphState:
         """

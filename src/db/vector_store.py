@@ -14,6 +14,8 @@ from config.paths import CHROMA_DB_DIR
 from utils.logger import get_logger
 from utils.custom_exception import CustomException
 import sys
+import gc
+import torch
 
 logger = get_logger(__name__)
 
@@ -34,7 +36,17 @@ class VectorStore:
         embedding_model: HuggingFace model for embeddings (small, fast model)
         """
         try:
-            logger.info(f"Initializing ChromaDB VectorStore with collection: {collection_name}")
+            # Sanitize collection name for ChromaDB requirements
+            # Rules: 3-512 chars, [a-zA-Z0-9._-], start/end with alphanumeric
+            import re
+            sanitized_name = re.sub(r'[^a-zA-Z0-9._-]', '_', collection_name)  # Replace invalid chars
+            sanitized_name = re.sub(r'^[^a-zA-Z0-9]+', '', sanitized_name)  # Remove leading non-alphanumeric
+            sanitized_name = re.sub(r'[^a-zA-Z0-9]+$', '', sanitized_name)  # Remove trailing non-alphanumeric
+            sanitized_name = sanitized_name[:512] if len(sanitized_name) > 512 else sanitized_name
+            if len(sanitized_name) < 3:
+                sanitized_name = sanitized_name + "_collection"
+            
+            logger.info(f"Initializing ChromaDB VectorStore with collection: {sanitized_name}")
             
             #Initialize ChromaDB client (persistent storage)
             self.client = chromadb.PersistentClient(
@@ -42,13 +54,13 @@ class VectorStore:
                 settings=Settings(anonymized_telemetry=False)
             )
 
-            # Load embedding model (Locally)
+            # Load embedding model (Using MPS for Apple Silicon acceleration)
             logger.info(f"Loading embedding model: {embedding_model}")
-            self.embedding_model = SentenceTransformer(embedding_model, device="cpu")
+            self.embedding_model = SentenceTransformer(embedding_model, device="mps")
 
             # Get or create collection
             self.collection = self.client.get_or_create_collection(
-                    name=collection_name,
+                    name=sanitized_name,
                     metadata={"description": "Cogito RAG document store"}
                 )
             logger.info(f"Vector initialized. Documents in collections:{self.collection.count()}")
@@ -110,6 +122,26 @@ class VectorStore:
 
         except Exception as e:
             raise CustomException(f"Failed to add documents: {e}", sys)
+    
+    def unload_model(self) -> None:
+        """
+        Unload the embedding model from memory to free GPU/MPS resources.
+        Call this after batch embedding operations are complete.
+        """
+        try:
+            if hasattr(self, 'embedding_model') and self.embedding_model is not None:
+                logger.info("Unloading embedding model from memory...")
+                del self.embedding_model
+                self.embedding_model = None
+                
+                # Clear GPU/MPS memory
+                if torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
+                gc.collect()
+                
+                logger.info("Embedding model unloaded, memory freed")
+        except Exception as e:
+            logger.warning(f"Failed to unload model: {e}")
 
     def search(self, query:str, top_k:int=3) -> Dict[str, Any]:
         """
@@ -164,17 +196,15 @@ class VectorStore:
             "embedding_model": self.embedding_model.__class__.__name__
         }
     
-    def clear_collection(self) -> None:
+    
+    def delete_collection(self) -> None:
         """
-        Delete all documents from the Collection.
+        Permanently delete the collection from ChromaDB (does not recreate).
         """
         try:
-            logger.warning(f"Clearing collection: {self.collection.name}")
-            self.client.delete_collection(self.collection.name)
-            self.collection = self.client.create_collection(
-                name=self.collection.name,
-                metadata={"description":"Cogito RAG document store"}
-            )
-            logger.info("Collection Cleared")
+            collection_name = self.collection.name
+            logger.warning(f"Permanently deleting collection: {collection_name}")
+            self.client.delete_collection(collection_name)
+            logger.info(f"Collection '{collection_name}' deleted permanently")
         except Exception as e:
-            raise CustomException(f"Failed to clear collection: {e}", sys)
+            raise CustomException(f"Failed to delete collection: {e}", sys)
