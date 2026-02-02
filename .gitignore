@@ -26,6 +26,7 @@ models/
 *.sqlite3
 *.bin
 *.pickle
+*.pdf
 
 # Results
 results/*.json

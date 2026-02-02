@@ -215,6 +215,16 @@ h3 {
     cursor: not-allowed;
 }
 
+.btn-danger {
+    border-color: #FF0000;
+    color: #FF0000;
+}
+
+.btn-danger:hover {
+    background-color: #FF0000;
+    color: #000000;
+}
+
 /* ============================================================================
    Status Box
 ============================================================================ */
@@ -238,6 +248,222 @@ h3 {
 .status-box.loading {
     border-color: #FFFF00;
     color: #FFFF00;
+}
+
+/* ============================================================================
+   Ingestion Progress Panel
+============================================================================ */
+
+.progress-panel {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #00FF00;
+    background-color: #050505;
+}
+
+/* Step Indicators */
+.step-indicators {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 20px;
+}
+
+.step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.4;
+    transition: all 0.3s ease;
+}
+
+.step-item.active {
+    opacity: 1;
+}
+
+.step-item.active .step-number {
+    background-color: #00FF00;
+    color: #000000;
+    animation: pulse 1.5s infinite;
+}
+
+.step-item.complete {
+    opacity: 1;
+}
+
+.step-item.complete .step-number {
+    background-color: #00FF00;
+    color: #000000;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #00FF00;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.step-label {
+    font-size: 10px;
+    color: #00FF00;
+}
+
+.step-connector {
+    width: 30px;
+    height: 1px;
+    background-color: #333333;
+    margin: 0 5px;
+    margin-bottom: 20px;
+}
+
+.step-item.complete+.step-connector,
+.step-connector:has(+ .step-item.active),
+.step-connector:has(+ .step-item.complete) {
+    background-color: #00FF00;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 5px #00FF00;
+    }
+
+    50% {
+        box-shadow: 0 0 15px #00FF00;
+    }
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    position: relative;
+    height: 20px;
+    border: 1px solid #00FF00;
+    background-color: #000000;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #003300, #00FF00);
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(90deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 0, 0, 0.2) 10px,
+            rgba(0, 0, 0, 0.2) 20px);
+}
+
+.progress-percent {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #00FF00;
+    z-index: 1;
+}
+
+/* Counters */
+.progress-counters {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 15px;
+}
+
+.counter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.counter-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #00FF00;
+    font-family: 'Courier New', monospace;
+}
+
+.counter-label {
+    font-size: 10px;
+    color: #666666;
+}
+
+/* Current Status */
+.current-status {
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 15px;
+    color: #FFFF00;
+    font-size: 12px;
+    border: 1px dashed #333333;
+    animation: blink 1s infinite;
+}
+
+.success-text {
+    color: #00FF00;
+    animation: none;
+}
+
+.error-text {
+    color: #FF0000;
+    animation: none;
+}
+
+/* Activity Log */
+.activity-log-container {
+    border: 1px solid #333333;
+    background-color: #000000;
+}
+
+.activity-log-header {
+    padding: 8px 10px;
+    border-bottom: 1px solid #333333;
+    font-size: 12px;
+    color: #00FF00;
+}
+
+.activity-log {
+    height: 150px;
+    overflow-y: auto;
+    padding: 10px;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.activity-entry {
+    color: #888888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-entry:last-child {
+    color: #00FF00;
+}
+
+.activity-entry:last-child::after {
+    content: '█';
+    animation: cursor-blink 1s infinite;
+    margin-left: 2px;
 }
 
 /* ============================================================================
@@ -363,6 +589,18 @@ h3 {
     color: #FF0000;
 }
 
+.status-value.highlight {
+    color: #00FF00;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.button-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
 /* ============================================================================
    Loading Overlay
 ============================================================================ */
@@ -389,14 +627,20 @@ h3 {
     height: 50px;
     border: 2px solid #333333;
     border-top: 2px solid #00FF00;
-    border-radius: 0; /* Keep it square for brutalist style */
+    border-radius: 0;
+    /* Keep it square for brutalist style */
     animation: spin 1s linear infinite;
     margin: 0 auto 20px;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 #loading-text {
@@ -405,8 +649,268 @@ h3 {
 }
 
 @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.5; }
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes cursor-blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0;
+    }
+}
+
+/* ============================================================================
+   Delete Confirmation Modal
+============================================================================ */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-box {
+    background-color: #000000;
+    border: 2px solid #FF0000;
+    padding: 25px;
+    max-width: 450px;
+    width: 90%;
+}
+
+.modal-title {
+    color: #FF0000;
+    margin: 0 0 20px 0;
+    font-size: 18px;
+}
+
+.modal-content {
+    color: #AAAAAA;
+    margin-bottom: 20px;
+}
+
+.modal-content p {
+    margin: 10px 0;
+}
+
+.modal-content strong {
+    color: #FF0000;
+}
+
+.modal-collection-name {
+    color: #00FF00;
+    font-size: 16px;
+    padding: 10px;
+    border: 1px solid #333333;
+    background-color: #050505;
+    text-align: center;
+}
+
+.modal-list {
+    color: #FF6666;
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.modal-list li {
+    margin: 5px 0;
+}
+
+.modal-warning {
+    color: #FFFF00;
+    font-weight: bold;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+}
+
+/* ============================================================================
+   Custom Dropdowns
+============================================================================ */
+
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+    width: 100%;
+}
+
+.custom-select {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.custom-select-trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: 300;
+    color: #00FF00;
+    background: #000000;
+    border: 1px solid #333333;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.custom-select-trigger:after {
+    content: '▼';
+    font-size: 10px;
+    margin-left: 10px;
+    transition: transform 0.3s;
+}
+
+.custom-select.open .custom-select-trigger:after {
+    transform: rotate(180deg);
+}
+
+.custom-select-trigger:hover {
+    border-color: #00FF00;
+}
+
+.custom-options {
+    position: absolute;
+    display: block;
+    top: 100%;
+    left: 0;
+    right: 0;
+    border: 1px solid #00FF00;
+    border-top: 0;
+    background: #000000;
+    transition: all 0.3s;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.custom-select.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+    box-shadow: 0 5px 15px rgba(0, 255, 0, 0.1);
+}
+
+.custom-option {
+    position: relative;
+    display: block;
+    padding: 10px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: 300;
+    color: #00FF00;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 1px solid #111;
+}
+
+.custom-option:last-of-type {
+    border-bottom: 0;
+}
+
+.custom-option:hover {
+    background-color: #003300;
+    color: #FFFFFF;
+}
+
+.custom-option.selected {
+    background-color: #00FF00;
+    color: #000000;
+}
+
+/* Hide original select but keep it accessible for form submission if needed */
+select.hidden-select {
+    display: none !important;
+}
+
+
+/* ============================================================================
+   Custom ComboBox (Input with Dropdown)
+============================================================================ */
+
+.custom-combobox-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-combobox-input {
+    width: 100%;
+    padding: 10px;
+    padding-right: 30px;
+    /* Space for arrow */
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: 300;
+    color: #00FF00;
+    background: #000000;
+    border: 1px solid #333333;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.custom-combobox-input:focus {
+    border-color: #00FF00;
+}
+
+.custom-combobox-arrow {
+    position: absolute;
+    right: 1px;
+    top: 1px;
+    bottom: 1px;
+    width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #00FF00;
+    cursor: pointer;
+    background: #000000;
+    border-left: 1px solid #333333;
+    transition: all 0.3s;
+}
+
+.custom-combobox-arrow:hover {
+    background: #003300;
+}
+
+.custom-combobox-wrapper.open .custom-combobox-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-combobox-wrapper.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+    box-shadow: 0 5px 15px rgba(0, 255, 0, 0.1);
 }
 
 /* ============================================================================

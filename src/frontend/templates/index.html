@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cogito - Self-Correcting RAG</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=8">
 </head>
 
 <body>
@@ -50,7 +50,8 @@
 
                     <div class="form-group">
                         <label for="upload-collection">COLLECTION:</label>
-                        <input type="text" id="upload-collection" value="cogito_docs">
+                        <input type="text" id="upload-collection" list="collections-list"
+                            placeholder="Select or type new...">
                     </div>
 
                     <div class="form-group">
@@ -64,6 +65,68 @@
 
                     <button type="submit" class="btn">UPLOAD & PROCESS</button>
                 </form>
+
+                <!-- Enhanced Progress Display for Upload -->
+                <div id="upload-progress" class="progress-panel hidden">
+                    <!-- Step Indicators -->
+                    <div class="step-indicators">
+                        <div class="step-item upload-step" data-step="1">
+                            <span class="step-number">1</span>
+                            <span class="step-label">UPLOAD</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item upload-step" data-step="2">
+                            <span class="step-number">2</span>
+                            <span class="step-label">CHUNK</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item upload-step" data-step="3">
+                            <span class="step-number">3</span>
+                            <span class="step-label">GRAPH</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item upload-step" data-step="4">
+                            <span class="step-number">4</span>
+                            <span class="step-label">VECTORS</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item upload-step" data-step="5">
+                            <span class="step-number">5</span>
+                            <span class="step-label">DONE</span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="upload-progress-bar"></div>
+                        <span class="progress-percent" id="upload-progress-percent">0%</span>
+                    </div>
+
+                    <!-- Counters -->
+                    <div class="progress-counters">
+                        <div class="counter">
+                            <span class="counter-value" id="files-count">0</span>
+                            <span class="counter-label">FILES</span>
+                        </div>
+                        <div class="counter">
+                            <span class="counter-value" id="chunks-count">0</span>
+                            <span class="counter-label">CHUNKS</span>
+                        </div>
+                        <div class="counter">
+                            <span class="counter-value" id="upload-nodes-count">0</span>
+                            <span class="counter-label">NODES</span>
+                        </div>
+                    </div>
+
+                    <!-- Current Status -->
+                    <div class="current-status" id="upload-status-msg">Initializing...</div>
+
+                    <!-- Activity Log -->
+                    <div class="activity-log-container">
+                        <div class="activity-log-header">> ACTIVITY LOG</div>
+                        <div class="activity-log" id="upload-activity-log"></div>
+                    </div>
+                </div>
 
                 <div id="upload-status" class="status-box hidden"></div>
             </div>
@@ -80,7 +143,8 @@
 
                     <div class="form-group">
                         <label for="url-collection">COLLECTION:</label>
-                        <input type="text" id="url-collection" value="cogito_docs">
+                        <input type="text" id="url-collection" list="collections-list"
+                            placeholder="Select or type new...">
                     </div>
 
                     <div class="form-group">
@@ -90,6 +154,59 @@
 
                     <button type="submit" class="btn">START SCRAPING</button>
                 </form>
+
+                <!-- Enhanced Progress Display -->
+                <div id="url-progress" class="progress-panel hidden">
+                    <!-- Step Indicators -->
+                    <div class="step-indicators">
+                        <div class="step-item" data-step="1">
+                            <span class="step-number">1</span>
+                            <span class="step-label">SCRAPE</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item" data-step="2">
+                            <span class="step-number">2</span>
+                            <span class="step-label">GRAPH</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item" data-step="3">
+                            <span class="step-number">3</span>
+                            <span class="step-label">VECTORS</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item" data-step="4">
+                            <span class="step-number">4</span>
+                            <span class="step-label">DONE</span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="ingestion-progress-bar"></div>
+                        <span class="progress-percent" id="progress-percent">0%</span>
+                    </div>
+
+                    <!-- Counters -->
+                    <div class="progress-counters">
+                        <div class="counter">
+                            <span class="counter-value" id="pages-count">0</span>
+                            <span class="counter-label">PAGES</span>
+                        </div>
+                        <div class="counter">
+                            <span class="counter-value" id="nodes-count">0</span>
+                            <span class="counter-label">NODES</span>
+                        </div>
+                    </div>
+
+                    <!-- Current Status -->
+                    <div class="current-status" id="current-status-msg">Initializing...</div>
+
+                    <!-- Activity Log -->
+                    <div class="activity-log-container">
+                        <div class="activity-log-header">> ACTIVITY LOG</div>
+                        <div class="activity-log" id="activity-log"></div>
+                    </div>
+                </div>
 
                 <div id="url-status" class="status-box hidden"></div>
             </div>
@@ -108,11 +225,54 @@
 
                     <div class="form-group">
                         <label for="query-collection">COLLECTION:</label>
-                        <input type="text" id="query-collection" value="cogito_docs">
+                        <select id="query-collection">
+                            <option value="cogito_docs">cogito_docs</option>
+                        </select>
                     </div>
 
                     <button type="submit" class="btn">EXECUTE</button>
                 </form>
+
+                <!-- Query Progress Panel -->
+                <div id="query-progress" class="progress-panel hidden"
+                    style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 20px;">
+                    <!-- Step Indicators -->
+                    <div class="step-indicators">
+                        <div class="step-item query-step" data-step="RETRIEVE">
+                            <span class="step-number">1</span>
+                            <span class="step-label">RETRIEVE</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item query-step" data-step="GRAPH">
+                            <span class="step-number">2</span>
+                            <span class="step-label">GRAPH</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item query-step" data-step="GENERATE">
+                            <span class="step-number">3</span>
+                            <span class="step-label">GENERATE</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item query-step" data-step="AUDIT">
+                            <span class="step-number">4</span>
+                            <span class="step-label">AUDIT</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-item query-step" data-step="DONE">
+                            <span class="step-number">5</span>
+                            <span class="step-label">DONE</span>
+                        </div>
+                    </div>
+
+                    <!-- Current Status -->
+                    <div class="current-status" id="query-status-msg">Initializing...</div>
+
+                    <!-- Activity Log -->
+                    <div class="activity-log-container">
+                        <div class="activity-log-header">> EXECUTION LOG</div>
+                        <div class="activity-log" id="query-activity-log"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Trace Display -->
@@ -139,12 +299,34 @@
             <h2>> SYSTEM STATUS</h2>
 
             <div class="section-box">
+                <h3>> COLLECTION SELECTOR</h3>
+                <div class="form-group">
+                    <label for="collection-select">ACTIVE COLLECTION:</label>
+                    <select id="collection-select">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="switch-progress-container" class="hidden" style="margin-top: 15px;">
+                <div class="progress-bar-container" style="height: 10px; margin-bottom: 5px;">
+                    <div id="switch-progress-bar" class="progress-bar" style="width: 0%"></div>
+                </div>
+                <div style="font-size: 10px; color: #00FF00; text-align: center;">SWITCHING...</div>
+            </div>
+
+            <div class="section-box">
+                <h3>> CURRENT STATS</h3>
                 <div id="system-status">
                     <p>Loading status...</p>
                 </div>
 
-                <button id="refresh-status" class="btn">REFRESH</button>
-                <button id="init-btn" class="btn">INITIALIZE SYSTEM</button>
+                <div class="button-row">
+                    <button id="refresh-status" class="btn">REFRESH</button>
+                    <button id="init-btn" class="btn">INITIALIZE RAG</button>
+                    <button id="delete-collection-btn" class="btn btn-danger">DELETE COLLECTION</button>
+                </div>
+                <div id="collection-status" class="status-box hidden" style="margin-top: 15px;"></div>
             </div>
         </section>
     </main>
@@ -157,7 +339,31 @@
         </div>
     </div>
 
-    <script src="/static/script.js"></script>
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title">⚠️ CONFIRM DELETION</h3>
+            <div class="modal-content">
+                <p>This will <strong>permanently delete</strong> the collection:</p>
+                <p class="modal-collection-name" id="delete-modal-collection"></p>
+                <ul class="modal-list">
+                    <li>All vector embeddings</li>
+                    <li>All graph nodes and edges</li>
+                    <li>The collection itself from ChromaDB</li>
+                </ul>
+                <p class="modal-warning">This action cannot be undone.</p>
+            </div>
+            <div class="modal-buttons">
+                <button id="delete-cancel-btn" class="btn">CANCEL</button>
+                <button id="delete-confirm-btn" class="btn btn-danger">DELETE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collections Datalist for combo-box inputs -->
+    <datalist id="collections-list"></datalist>
+
+    <script src="/static/script.js?v=8"></script>
 </body>
 
 </html>
