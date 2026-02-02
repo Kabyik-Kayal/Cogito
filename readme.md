@@ -115,7 +115,7 @@ Cogito/
 
 ## How to Play with It
 
-First, you need to set up your lab.
+First, you need to make sure you have atleast a 16GB GPU (can be lower if you change the 8B parameter model used currently with any 3B model), then set up your lab.
 
 ### 0. Get the Resources
 ```bash
@@ -125,10 +125,14 @@ cd Cogito
 
 ### 1. Install the Equipment
 ```bash
-conda create -n cogito python=3.11
+conda create -n cogito python=3.11 -y
 conda activate cogito
 pip install uv
 uv pip install -r requirements.txt
+```
+### 2. Download the LLM
+```bash
+python -m src.model.download_models
 ```
 
 ### 2. Run the Machine
@@ -136,6 +140,8 @@ Now, start the "State Machine." This spins up the little society of agents and g
 ```bash
 uvicorn src.frontend.app:app --reload
 ```
+FOR the ***FIRST TIME***, after opening the webapp, wait for few minutes to let the tokenizer download properly.
+
 You can upload documents into the database or provide links to scrape data.
 
 ![Cogito Ingestion Interface](assets/Ingestion.png)
