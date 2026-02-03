@@ -73,9 +73,9 @@ class CogitoGraph:
                 model_path=model_path,
                 n_ctx=4096,
                 n_gpu_layers=n_gpu_layers,
-                verbose=True  # Enable verbose logging to see detailed errors
+                verbose=True
             )
-            logger.info("✓ Shared LLM loaded successfully")
+            logger.info("Shared LLM loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model: {type(e).__name__}: {str(e)}")
             logger.error(f"Model path attempted: {MISTRAL_GGUF_MODEL_PATH}")
@@ -142,24 +142,22 @@ class CogitoGraph:
         logger.info(f"Retry Count: {retry_count}/{self.max_retries}")
 
         if audit_status == "pass":
-            logger.info("✓ Audit PASSED - Ending Pipeline")
+            logger.info("Audit PASSED - Ending Pipeline")
             return "end"
         
         if retry_count >= self.max_retries:
-            logger.warning(f"✗ Max Retries ({self.max_retries}) reached - Ending with failure")
+            logger.warning(f"Max Retries ({self.max_retries}) reached - Ending with failure")
             state.final_answer = f"Unable to provide a verified answer after {self.max_retries} attempts. Last attempt: {state.generation}"
             return "end"
         
-        logger.info(f"✗ Audit FAILED - Rewriting (attempt {retry_count + 1}/{self.max_retries})")
+        logger.info(f"Audit FAILED - Rewriting (attempt {retry_count + 1}/{self.max_retries})")
         return "rewrite"
     
     def query(self, question: str) -> dict:
         """Run a query through the pipeline"""
         from src.state import create_initial_state
 
-        logger.info("\n" + "="*60)
         logger.info("COGITO PIPELINE STARTED")
-        logger.info("="*60)
         logger.info(f"Question: {question}")
 
         initial_state = create_initial_state(question)
@@ -191,9 +189,7 @@ class CogitoGraph:
                 }
             }
 
-        logger.info("\n" + "="*60)
         logger.info("PIPELINE COMPLETED")
-        logger.info("="*60)
         logger.info(f"Status: {response['audit_status'].upper()}")
         logger.info(f"Answer: {response['answer'][:100]}...")
 

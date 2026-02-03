@@ -2,8 +2,19 @@
 
 > *"The first principle is that you must not fool yourself — and you are the easiest person to fool."* — Richard Feynman
 
-
 ![Cogito Interface](assets/demo.png)
+
+## ✨ Key Features
+
+- **Self-Correcting Pipeline** — Automatically detects and rewrites hallucinated responses
+- **Graph-Augmented Retrieval** — Follows document relationships to gather complete context
+- **Hallucination Auditing** — Every response is verified against source documents
+- **Local LLM Support** — Runs entirely on your machine using quantized models (GGUF)
+- **Multi-Format Ingestion** — Supports PDFs, HTML, and web scraping
+- **Collection Management** — Organize documents into separate searchable collections
+- **Interactive Web UI** — Built-in interface for querying and document management
+
+---
 
 ## The Problem with Parrots
 You see, standard language models are a bit like very well-read parrots. You ask them, "What is the capital of France?" and they say "Paris!" because they've heard it a million times. It's wonderful.
@@ -51,6 +62,37 @@ To build this machine, we used some very specific tools:
 *   **NetworkX**: The map. It remembers how documents link to each other (hyperlinks, sections). This is how we find the "hidden" connections.
 *   **Llama.cpp**: The brain. We're using local, quantized models (like Mistral or Llama 3) because you don't need a supercomputer to check facts—you just need a sharp one.
 *   **DeepEval**: The scorecard. It measures how often we tell the truth.
+
+## Requirements
+
+### Supported Operating Systems
+| OS | Status |
+|----|--------|
+| **macOS** | ✅ Fully supported (Apple Silicon) |
+| **Linux** | ✅ Fully supported (Ubuntu 20.04+, Debian, Fedora) |
+
+### Hardware Requirements
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **GPU** | 8GB VRAM (with 3B model) | 16GB+ VRAM (for 8B model) |
+| **RAM** | 16GB | 32GB |
+| **Storage** | 10GB free space | 20GB+ (for multiple models) |
+| **CPU** | 4 cores | 8+ cores |
+
+> [!NOTE]
+> The system can run on CPU-only mode, but inference will be significantly slower. Apple Silicon Macs with Metal support work well with `llama.cpp`.
+
+### Software Requirements
+| Software | Version | Purpose |
+|----------|---------|---------|
+| **Python** | 3.11+ | Runtime environment |
+| **Conda/Miniconda** | Latest | Environment management |
+| **CUDA Toolkit** | 12.x (if using NVIDIA GPU) | GPU acceleration |
+| **Git** | Latest | Repository cloning |
+| **C++ Compiler** | GCC 11+ / Clang 14+ | Building llama.cpp bindings |
+
+> [!TIP]
+> On macOS, install Xcode Command Line Tools via `xcode-select --install` for the C++ compiler.
 
 ## The Blueprints (Technical details)
 For those who want to see the engine block, here is how we wired it up.
@@ -155,6 +197,69 @@ It is a beautiful thing to watch a machine admit it was wrong.
 You can also find the info of the available Collections, initialize them before hand to reduce the first query time, or delete the collections completely.
 
 ![Cogito Ingestion Interface](assets/Information.png)
+
+## Configuration
+
+Cogito can be customized via the `config/paths.py` file:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `MODEL_PATH` | Path to GGUF model file | `models/` |
+| `CHROMA_DB_PATH` | ChromaDB persistence directory | `data/chroma/` |
+| `GRAPH_STORE_PATH` | NetworkX graph pickle location | `data/graph/` |
+| `CHUNK_SIZE` | Text chunk size for ingestion | `512` |
+| `CHUNK_OVERLAP` | Overlap between chunks | `50` |
+
+### Environment Variables
+
+```bash
+# Optional: Override default paths
+export COGITO_MODEL_PATH="/path/to/your/model.gguf"
+export COGITO_DATA_DIR="/path/to/data"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| **Out of Memory (GPU)** | Use a smaller model (3B) or reduce `n_ctx` in config |
+| **Slow inference** | Ensure GPU acceleration is enabled; check CUDA/Metal setup |
+| **Model not found** | Run `python -m src.model.download_models` |
+| **Tokenizer download hangs** | Wait 2-3 minutes on first run; check internet connection |
+| **ChromaDB errors** | Delete `data/chroma/` and re-ingest documents |
+
+## API Reference
+
+The web interface runs on `http://localhost:8000`. Key endpoints:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Main query interface |
+| `/ingest` | POST | Upload documents for ingestion |
+| `/collections` | GET | List available collections |
+| `/collections/{name}` | DELETE | Remove a collection |
+
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Acknowledgments
+
+- Built with [LangGraph](https://github.com/langchain-ai/langgraph) for state machine orchestration
+- [ChromaDB](https://www.trychroma.com/) for vector storage
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) for local LLM inference
 
 ---
 *"Nature cannot be fooled."*
