@@ -123,7 +123,6 @@ async def get_status(collection: str = None):
             vs = VectorStore(collection_name=target_collection)
             stats = vs.get_collection_stats()
             status["document_count"] = stats["total_documents"]
-            vs.unload_model()  # Free memory after checking
         except Exception as e:
             logger.debug(f"Could not get vector stats: {e}")
         
@@ -197,7 +196,6 @@ async def delete_collection(collection: str):
         try:
             vs = VectorStore(collection_name=collection)
             vs.delete_collection()
-            vs.unload_model()
             deleted.append("vector collection")
             logger.info(f"Deleted ChromaDB collection: {collection}")
         except Exception as e:
@@ -385,7 +383,6 @@ def process_uploaded_files(job_id: str, saved_files: list, collection: str, chun
         metadatas = [{"source": node.url, "type": node.section_type} for node in nodes]
         
         vector_store.add_documents(node_ids=node_ids, documents=contents, metadatas=metadatas)
-        vector_store.unload_model()
         
         status["activity_log"].append(f"[VECTORS] Stored {len(nodes)} embeddings")
         
@@ -633,11 +630,6 @@ async def ingest_from_url(request: IngestURLRequest, background_tasks: Backgroun
                 add_activity(f"Stored {len(unique_nodes)} documents in vector DB")
                 await asyncio.sleep(0.1)
                 
-                # Unload embedding model to free MPS memory for later models
-                add_activity("Unloading embedding model...")
-                vector_store.unload_model()
-                add_activity("Embedding model unloaded from memory")
-                
                 app_state.ingestion_status[job_id].update({
                     "progress": 90
                 })
@@ -810,6 +802,100 @@ async def query_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+@app.post("/api/download-model")
+async def download_model_endpoint(background_tasks: BackgroundTasks):
+    """Download the LLM and ONNX embedding models if not already present."""
+    try:
+        from src.model.download_models import download_model
+        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
+        
+        # Check if both models already exist
+        llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
+        onnx_model_path = ONNX_CACHE_DIR / "all-MiniLM-L6-v2"
+        onnx_exists = onnx_model_path.exists() and any(onnx_model_path.iterdir())
+        
+        if llm_exists and onnx_exists:
+            return {"status": "exists", "message": "Models already downloaded"}
+        
+        # Start download in background (will download missing models)
+        job_id = str(uuid.uuid4())
+        app_state.ingestion_status[job_id] = {
+            "status": "running",
+            "message": "Starting download...",
+            "progress": 0
+        }
+        
+        background_tasks.add_task(run_model_download, job_id)
+        return {"status": "started", "job_id": job_id}
+        
+    except Exception as e:
+        logger.error(f"Model download failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def run_model_download(job_id: str):
+    """Background task to download the model with progress tracking."""
+    try:
+        from src.model.download_models import download_model
+        
+        status = app_state.ingestion_status[job_id]
+        
+        def progress_callback(percent, message):
+            status["progress"] = percent
+            status["message"] = message
+            if percent < 0:
+                status["status"] = "failed"
+                status["error"] = message
+        
+        # Simulate progress updates since hf_hub_download doesn't provide granular progress
+        status["progress"] = 10
+        status["message"] = "Downloading from HuggingFace..."
+        
+        download_model(progress_callback=progress_callback)
+        
+        status["status"] = "completed"
+        status["message"] = "Model downloaded successfully"
+        status["progress"] = 100
+        
+    except Exception as e:
+        logger.error(f"Model download failed: {e}")
+        status = app_state.ingestion_status.get(job_id)
+        if status:
+            status["status"] = "failed"
+            status["error"] = str(e)
+            status["progress"] = -1
+
+
+@app.get("/api/model-download-status/{job_id}")
+async def get_model_download_status(job_id: str):
+    """Get the status of a model download job."""
+    status = app_state.ingestion_status.get(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return status
+
+
+@app.get("/api/model-status")
+async def get_model_status():
+    """Check if both LLM and ONNX embedding models are downloaded."""
+    try:
+        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
+        
+        llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
+        onnx_model_path = ONNX_CACHE_DIR / "all-MiniLM-L6-v2"
+        onnx_exists = onnx_model_path.exists() and any(onnx_model_path.iterdir())
+        
+        both_downloaded = llm_exists and onnx_exists
+        
+        return {
+            "downloaded": both_downloaded,
+            "llm_downloaded": llm_exists,
+            "onnx_downloaded": onnx_exists
+        }
+    except Exception as e:
+        return {"downloaded": False, "error": str(e)}
 
 
 # ============================================================================

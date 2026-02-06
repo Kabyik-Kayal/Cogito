@@ -8,15 +8,13 @@ including the NetworkX node_id for graph expansion.
 
 import chromadb
 from chromadb.config import Settings
+from chromadb.utils import embedding_functions
 from typing import List, Dict, Any, Optional
-from sentence_transformers import SentenceTransformer
-from config.paths import CHROMA_DB_DIR
+from config.paths import CHROMA_DB_DIR, ONNX_CACHE_DIR
 from utils.logger import get_logger
 from utils.custom_exception import CustomException
-from utils.gpu_selector import get_device
 import sys
-import gc
-import torch
+import os
 
 logger = get_logger(__name__)
 
@@ -25,7 +23,7 @@ class VectorStore:
     Wrapper for ChromaDB operations.
 
     Handles document embedding, storage, and retrieval using semantic search.
-    Uses sentence-transformers for local embedding generation.
+    Uses ChromaDB's built-in ONNX runtime for lightweight local embeddings.
     """
     
     def __init__(self, collection_name: str="cogito_docs", embedding_model: str = "all-MiniLM-L6-v2"):
@@ -49,20 +47,27 @@ class VectorStore:
             
             logger.info(f"Initializing ChromaDB VectorStore with collection: {sanitized_name}")
             
+            # Create ONNX cache directory if it doesn't exist
+            ONNX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            
+            # Set environment variable for ONNX model cache (ChromaDB uses this)
+            os.environ['ONNX_MODELS_DIR'] = str(ONNX_CACHE_DIR)
+            
             #Initialize ChromaDB client (persistent storage)
             self.client = chromadb.PersistentClient(
                 path=str(CHROMA_DB_DIR),
                 settings=Settings(anonymized_telemetry=False)
             )
 
-            # Auto-detect device (MPS, CUDA, XPU, or CPU)
-            self.device, self.gpu = get_device()
-            logger.info(f"Loading embedding model: {embedding_model} on device: {self.device}")
-            self.embedding_model = SentenceTransformer(embedding_model, device=self.device)
+            # Use ChromaDB's built-in ONNX embedding function (no PyTorch needed!)
+            logger.info(f"Loading embedding function: {embedding_model} (ONNX runtime)")
+            self.embedding_function = embedding_functions.ONNXMiniLM_L6_V2()
+            self.embedding_model_name = embedding_model
 
-            # Get or create collection
+            # Get or create collection with embedding function
             self.collection = self.client.get_or_create_collection(
                     name=sanitized_name,
+                    embedding_function=self.embedding_function,
                     metadata={"description": "Cogito RAG document store"}
                 )
             logger.info(f"Vector initialized. Documents in collections:{self.collection.count()}")
@@ -89,13 +94,6 @@ class VectorStore:
                 raise ValueError("documents and node_ids must have same length")
             logger.info(f"Addind {len(documents)} documents to vector store...")
         
-            # Generate embeddings locally
-            embeddings = self.embedding_model.encode(
-                documents,
-                show_progress_bar=True,
-                convert_to_numpy=True
-            ).tolist()
-
             # Prepare metadata (include node_id for graph expansion)
             if metadatas is None:
                 metadatas = [{"node_id": node_id} for node_id in node_ids]
@@ -103,7 +101,7 @@ class VectorStore:
                 for i, meta in enumerate(metadatas):
                     meta["node_id"] = node_ids[i]
             
-            # Add to ChromaDB in batches (max batch size is ~5000)
+            # Add to ChromaDB in batches (ChromaDB auto-generates embeddings)
             batch_size = 5000
             total_added = 0
             
@@ -112,7 +110,6 @@ class VectorStore:
                 
                 self.collection.add(
                     documents=documents[i:batch_end],
-                    embeddings=embeddings[i:batch_end],
                     ids=node_ids[i:batch_end],
                     metadatas=metadatas[i:batch_end]
                 )
@@ -124,31 +121,6 @@ class VectorStore:
 
         except Exception as e:
             raise CustomException(f"Failed to add documents: {e}", sys)
-    
-    def unload_model(self) -> None:
-        """
-        Unload the embedding model from memory to free GPU/MPS resources.
-        Call this after batch embedding operations are complete.
-        """
-        try:
-            if hasattr(self, 'embedding_model') and self.embedding_model is not None:
-                logger.info("Unloading embedding model from memory...")
-                del self.embedding_model
-                self.embedding_model = None
-                
-                # Clear GPU memory based on device type
-                if hasattr(self, 'device'):
-                    if self.device == "mps" and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                        torch.mps.empty_cache()
-                    elif self.device == "cuda" and torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                    elif self.device == "xpu" and hasattr(torch, 'xpu') and torch.xpu.is_available():
-                        torch.xpu.empty_cache()
-                gc.collect()
-                
-                logger.info("Embedding model unloaded, memory freed")
-        except Exception as e:
-            logger.warning(f"Failed to unload model: {e}")
 
     def search(self, query:str, top_k:int=3) -> Dict[str, Any]:
         """
@@ -168,11 +140,8 @@ class VectorStore:
         try:
             logger.info(f"Searching for: '{query}' (top_k={top_k})")
 
-            # Generate query embedding
-            query_embedding = self.embedding_model.encode(query, convert_to_numpy=True).tolist()
-
-            # Query ChromaDB
-            results = self.collection.query(query_embeddings=[query_embedding],
+            # Query ChromaDB (automatically embeds the query text)
+            results = self.collection.query(query_texts=[query],
                                             n_results=top_k,
                                             include=["documents","metadatas","distances"])
             
@@ -200,7 +169,7 @@ class VectorStore:
         return {
             "total_documents": self.collection.count(),
             "collection_name": self.collection.name,
-            "embedding_model": self.embedding_model.__class__.__name__
+            "embedding_model": "ONNXMiniLM_L6_V2"
         }
     
     
