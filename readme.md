@@ -10,9 +10,12 @@
 - **Graph-Augmented Retrieval** — Follows document relationships to gather complete context
 - **Hallucination Auditing** — Every response is verified against source documents
 - **Local LLM Support** — Runs entirely on your machine using quantized models (GGUF)
-- **Multi-Format Ingestion** — Supports PDFs, HTML, and web scraping
+- **Docker Support** — Fully containerized with optimized ~500MB image
+- **One-Click Model Download** — Download both LLM and embedding models from the web UI
+- **Multi-Format Ingestion** — Supports PDFs, Markdown, TXT, HTML, and web scraping
 - **Collection Management** — Organize documents into separate searchable collections
-- **Interactive Web UI** — Built-in interface for querying and document management
+- **Interactive Web UI** — Built-in terminal-style interface for querying and document management
+- **Auto-scroll & Progress Tracking** — Real-time feedback with automatic UI cleanup
 
 ---
 
@@ -58,10 +61,11 @@ And so, the Writer has to rewrite the query, the Researcher goes back to the lib
 To build this machine, we used some very specific tools:
 
 *   **LangGraph**: This is the conductor. It manages the state—who speaks when, and who passes papers to whom. It turns our flowchart into code.
-*   **ChromaDB**: The filing cabinet. It stores the text chunks so we can find them by meaning (vector search).
+*   **ChromaDB**: The filing cabinet with built-in ONNX embeddings. It stores the text chunks so we can find them by meaning (vector search) without needing PyTorch.
 *   **NetworkX**: The map. It remembers how documents link to each other (hyperlinks, sections). This is how we find the "hidden" connections.
-*   **Llama.cpp**: The brain. We're using local, quantized models (like Mistral or Llama 3) because you don't need a supercomputer to check facts—you just need a sharp one.
-*   **DeepEval**: The scorecard. It measures how often we tell the truth.
+*   **Llama.cpp**: The brain. We're using local, quantized models (like Mistral 8B) because you don't need a supercomputer to check facts—you just need a sharp one.
+*   **FastAPI**: The web server. Clean, fast, and modern API with background task support for async operations.
+*   **Docker**: The container. Everything runs in an optimized ~500MB image with persistent volumes.
 
 ## Requirements
 
@@ -126,9 +130,13 @@ Cogito/
 │   └── paths.py            # Path constants (Model paths, DB paths)
 ├── data/                   # The Raw Materials (PDFs, HTML)
 ├── models/                 # The Brains (GGUF files go here)
+│   └── onnx_cache/         # ONNX embedding models cache
+├── db/                     # Database Storage
+│   ├── chroma/             # Vector database (ChromaDB)
+│   └── graph/              # Graph database (NetworkX pickles)
 ├── scripts/
-│   ├── evaluate.py         # Run the DeepEval metrics suite
-│   └── ingest.py           # The Librarian (Scrapes & Indexes data)
+│   ├── evaluate.py         # Run evaluation metrics
+│   └── ingest.py           # CLI tool for ingestion (Scrapes & Indexes data)
 ├── src/
 │   ├── db/                 # Database Interfaces
 │   │   ├── graph_store.py  # NetworkX wrapper (saves/loads pickle)
@@ -137,7 +145,7 @@ Cogito/
 │   │   ├── evaluator.py    # DeepEval integration logic
 │   │   └── metrics.py      # Custom faithfulness/hallucination metrics
 │   ├── frontend/
-│   │   └── app.py          # The Streamlit Dashboard
+│   │   └── app.py          # FastAPI server with web UI
 │   ├── ingestion/
 │   │   ├── parser.py       # Chunking & Node creation logic
 │   │   ├── pipeline.py     # Orchestrates scraping -> graph -> db
@@ -155,38 +163,97 @@ Cogito/
     └── logger.py           # Centralized logging
 ```
 
-## How to Play with It
+## Installation & Setup
 
-First, you need to make sure you have atleast a 16GB GPU (can be lower if you change the 8B parameter model used currently with any 3B model), then set up your lab.
-
-### 0. Get the Resources
+First, get the code:
 ```bash
 git clone "https://github.com/Kabyik-Kayal/Cogito.git"
 cd Cogito
 ```
 
-### 1. Install the Equipment
+### Option 1: Docker (Recommended)
+
+The fastest way to get started:
+
 ```bash
-conda create -n cogito python=3.11 -y
-conda activate cogito
-pip install uv
-uv pip install -r requirements.txt
-```
-### 2. Download the LLM
-```bash
-python -m src.model.download_models
+# Build and start the container
+docker compose up --build -d
+
+# Access the web UI
+open http://localhost:8000
 ```
 
-### 2. Run the Machine
-Now, start the "State Machine." This spins up the little society of agents and gives you a web interface to watch them work.
+**Download the models:**
+1. Open http://localhost:8000
+2. Click the "MODEL" button in the top-right corner
+3. Wait for the download to complete (~9GB LLM + ~80MB embeddings)
+4. The button will show "MODEL READY" when done
+
+That's it! The models and data persist in Docker volumes across restarts.
+
+**Useful Docker commands:**
 ```bash
-uvicorn src.frontend.app:app --reload
+# View logs
+docker compose logs -f cogito
+
+# Stop the container
+docker compose down
+
+# Restart after code changes
+docker compose up --build -d
+
+# Access container shell
+docker exec -it cogito sh
+
+# Check disk usage
+docker system df -v
 ```
-FOR the ***FIRST TIME***, after opening the webapp, wait for few minutes to let the tokenizer download properly.
+
+### Option 2: Local Python Setup
+
+For development or if you prefer running directly on your machine:
+
+```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the application
+uvicorn src.frontend.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+Then open http://localhost:8000 in your browser.
+
+## Using Cogito
+
+### Initial Setup
+On first launch, download the models:
+1. Open the web interface at http://localhost:8000
+2. Click the **MODEL** button in the top navigation
+3. Wait for the download to complete:
+   - ONNX embedding model (~80MB, downloads first at 2-7%)
+   - LLM model (~9GB, downloads at 10-100%)
+4. The button will change to **MODEL READY** when complete
+
+### Document Ingestion
 
 You can upload documents into the database or provide links to scrape data.
 
 ![Cogito Ingestion Interface](assets/Ingestion.png)
+
+**Supported formats:** PDF, Markdown (`.md`), plain text (`.txt`), HTML
+
+**Ingestion methods:**
+- **File Upload:** Drag and drop or select files from your computer
+- **URL Scraping:** Provide a URL to scrape and ingest web content
+- **Collections:** Organize documents into separate searchable namespaces
+
+Progress feedback is shown in real-time and auto-hides after 20 seconds.
+
+### Querying
 
 When you ask a question, watch the logs. You will see the **Audit** happen. You will see it **Fail**. And you will see it **Correct Itself**. Or answer explicitly that it **Lacks** the information to answer, instead of **Hallucinating**.
 
@@ -194,28 +261,58 @@ When you ask a question, watch the logs. You will see the **Audit** happen. You 
 
 It is a beautiful thing to watch a machine admit it was wrong.
 
+The page auto-scrolls to the bottom when generation completes, ensuring you see the full answer.
+
+### Collection Management
+
 You can also find the info of the available Collections, initialize them before hand to reduce the first query time, or delete the collections completely.
 
 ![Cogito Ingestion Interface](assets/Information.png)
 
+**Collection operations:**
+- **List:** View all available collections and their document counts
+- **Initialize:** Pre-load collection into memory for faster queries
+- **Delete:** Remove a collection and all its documents permanently
+
 ## Configuration
 
-Cogito can be customized via the `config/paths.py` file:
+Cogito is configured via the `config/paths.py` file:
 
 | Setting | Description | Default |
-|---------|-------------|---------|
-| `MODEL_PATH` | Path to GGUF model file | `models/` |
-| `CHROMA_DB_PATH` | ChromaDB persistence directory | `data/chroma/` |
-| `GRAPH_STORE_PATH` | NetworkX graph pickle location | `data/graph/` |
-| `CHUNK_SIZE` | Text chunk size for ingestion | `512` |
-| `CHUNK_OVERLAP` | Overlap between chunks | `50` |
+|---------|-------------|---------||
+| `MODEL_DIR` | Directory for LLM models | `models/` |
+| `ONNX_CACHE_DIR` | ONNX embedding model cache | `models/onnx_cache/` |
+| `CHROMA_DB_DIR` | ChromaDB persistence directory | `db/chroma/` |
+| `GRAPH_STORE_DIR` | NetworkX graph storage | `db/graph/` |
+| `DATA_DIR` | Document storage | `data/` |
 
-### Environment Variables
+### Docker Volumes
 
+When running in Docker, data persists in named volumes:
+
+| Volume | Mount Point | Purpose |
+|--------|-------------|---------||
+| `cogito_models` | `/app/models` | LLM and ONNX models |
+| `cogito_db` | `/app/db` | ChromaDB and graph data |
+| `cogito_data` | `/app/data` | Uploaded documents |
+
+**To inspect volumes:**
 ```bash
-# Optional: Override default paths
-export COGITO_MODEL_PATH="/path/to/your/model.gguf"
-export COGITO_DATA_DIR="/path/to/data"
+# List all volumes
+docker volume ls
+
+# See where data is stored on host
+docker volume inspect cogito_models
+
+# Check model files
+docker exec cogito ls -lh /app/models
+```
+
+### Customization
+
+Edit `config/paths.py` to change paths, then rebuild if using Docker:
+```bash
+docker compose up --build -d
 ```
 
 ## Troubleshooting
@@ -224,11 +321,32 @@ export COGITO_DATA_DIR="/path/to/data"
 
 | Issue | Solution |
 |-------|----------|
-| **Out of Memory (GPU)** | Use a smaller model (3B) or reduce `n_ctx` in config |
-| **Slow inference** | Ensure GPU acceleration is enabled; check CUDA/Metal setup |
-| **Model not found** | Run `python -m src.model.download_models` |
-| **Tokenizer download hangs** | Wait 2-3 minutes on first run; check internet connection |
-| **ChromaDB errors** | Delete `data/chroma/` and re-ingest documents |
+| **Out of Memory (GPU)** | Use a smaller model (3B) or reduce `n_ctx` in generate.py |
+| **Slow inference** | Ensure GPU acceleration is enabled; check Metal/CUDA setup |
+| **Model not found** | Click the "MODEL" button in the web UI or run `python -m src.model.download_models` |
+| **ChromaDB errors** | Delete `db/chroma/` directory and re-ingest documents |
+| **Port 8000 already in use** | Change port in docker-compose.yml or kill the process using the port |
+| **Docker build fails** | Ensure you have at least 10GB free disk space; try `docker system prune` |
+| **ONNX model re-downloads** | Check that `ONNX_CACHE_DIR` is properly mounted as a Docker volume |
+| **Container won't start** | Check logs with `docker compose logs cogito` |
+| **Ingestion hangs** | Check browser console for errors; progress auto-hides after 20 seconds on success |
+
+### Docker-Specific Issues
+
+```bash
+# Container keeps restarting
+docker compose logs cogito --tail=50
+
+# Clean rebuild (removes volumes - WARNING: deletes data!)
+docker compose down -v
+docker compose up --build
+
+# Free up Docker disk space
+docker system prune -a
+
+# Check resource usage
+docker stats cogito
+```
 
 ## API Reference
 
@@ -236,10 +354,33 @@ The web interface runs on `http://localhost:8000`. Key endpoints:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Main query interface |
-| `/ingest` | POST | Upload documents for ingestion |
-| `/collections` | GET | List available collections |
-| `/collections/{name}` | DELETE | Remove a collection |
+| `/` | GET | Main web interface |
+| `/api/status` | GET | System status and collection info |
+| `/api/query` | POST | Submit a question (returns job_id) |
+| `/api/query-status/{job_id}` | GET | Get query progress and results |
+| `/api/upload` | POST | Upload documents (PDF, MD, TXT, HTML) |
+| `/api/upload-status/{job_id}` | GET | Check upload progress |
+| `/api/ingest-url` | POST | Scrape and ingest from URL |
+| `/api/ingestion-status/{job_id}` | GET | Check URL ingestion progress |
+| `/api/collections` | GET | List all collections |
+| `/api/delete-collection` | DELETE | Remove a collection |
+| `/api/download-model` | POST | Download LLM and ONNX models |
+| `/api/model-status` | GET | Check if models are downloaded |
+
+## Performance & Optimization
+
+### Docker Image Size
+The Cogito Docker image is highly optimized at **~700MB** (compressed).
+
+### Inference Performance
+| Backend | Hardware | Speed | Tokens/sec |
+|---------|----------|-------|------------|
+| **Metal** | Apple M1/M2/M3 | Fast | 40-60 |
+| **CUDA** | NVIDIA RTX 3090 | Very Fast | 60-80 |
+| **CPU** | Intel i7/i9 | Slow | 5-10 |
+
+> [!TIP]
+> For faster inference, ensure your GPU drivers are up to date and that the container has access to GPU resources.
 
 ## Contributing
 
@@ -258,8 +399,11 @@ This project is licensed under the [MIT License](LICENSE).
 ## Acknowledgments
 
 - Built with [LangGraph](https://github.com/langchain-ai/langgraph) for state machine orchestration
-- [ChromaDB](https://www.trychroma.com/) for vector storage
+- [ChromaDB](https://www.trychroma.com/) for vector storage with ONNX embeddings
 - [llama.cpp](https://github.com/ggerganov/llama.cpp) for local LLM inference
+- [FastAPI](https://fastapi.tiangolo.com/) for the web server
+- [NetworkX](https://networkx.org/) for graph operations
+- Model: [Mistral Ministral-3-8B-Reasoning](https://huggingface.co/mistralai/Ministral-3-8B-Reasoning-2512-GGUF)
 
 ---
 *"Nature cannot be fooled."*
