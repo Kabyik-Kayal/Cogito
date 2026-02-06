@@ -176,6 +176,12 @@ async function pollUploadStatus(jobId) {
     const pollInterval = setInterval(async () => {
         try {
             const response = await fetch(`/api/upload-status/${jobId}`);
+            
+            if (response.status === 404) {
+                clearInterval(pollInterval);
+                return;
+            }
+            
             const data = await response.json();
 
             updateUI(data);
@@ -186,6 +192,11 @@ async function pollUploadStatus(jobId) {
                     '<span class="success-text">✓ UPLOAD COMPLETE</span>';
                 // Refresh collections dropdown
                 await loadCollections();
+                
+                // Auto-hide after 20 seconds
+                setTimeout(() => {
+                    document.getElementById('upload-progress').classList.add('hidden');
+                }, 20000);
             } else if (data.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('upload-status-msg').innerHTML =
@@ -323,6 +334,12 @@ async function pollIngestionStatus(jobId) {
     const pollInterval = setInterval(async () => {
         try {
             const response = await fetch(`/api/ingestion-status/${jobId}`);
+            
+            if (response.status === 404) {
+                clearInterval(pollInterval);
+                return;
+            }
+            
             const data = await response.json();
 
             updateUI(data);
@@ -341,6 +358,11 @@ async function pollIngestionStatus(jobId) {
                 // Refresh collections dropdown to show new collection
                 await loadCollections();
                 // Keep progress panel visible to show final stats
+                
+                // Auto-hide after 20 seconds
+                setTimeout(() => {
+                    document.getElementById('url-progress').classList.add('hidden');
+                }, 20000);
             } else if (data.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('current-status-msg').innerHTML =
@@ -429,6 +451,9 @@ function pollQueryStatus(jobId) {
                 // Do NOT show 'trace-container' (User said "remove traceback")
 
                 document.getElementById('answer-container').classList.remove('hidden');
+                
+                // Auto-scroll to bottom to show the final answer
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             } else if (job.status === 'failed') {
                 clearInterval(pollInterval);
@@ -1039,6 +1064,108 @@ window.addEventListener('click', function (e) {
 
 
 // ============================================================================
+// Model Download
+// ============================================================================
+
+async function checkModelStatus() {
+    try {
+        const response = await fetch('/api/model-status');
+        const data = await response.json();
+        
+        const btn = document.getElementById('download-model-btn');
+        if (!btn) return; // Guard against missing button
+        
+        if (data.downloaded) {
+            btn.classList.add('downloaded');
+            btn.disabled = true;
+            btn.querySelector('.btn-icon').textContent = '';
+            btn.querySelector('.btn-text').textContent = 'MODEL READY';
+        }
+    } catch (error) {
+        console.error('Failed to check model status:', error);
+    }
+}
+
+function setupModelDownloadButton() {
+    const btn = document.getElementById('download-model-btn');
+    if (!btn) return; // Guard against missing button
+    
+    btn.addEventListener('click', async () => {
+        if (btn.disabled || btn.classList.contains('downloaded')) return;
+        
+        btn.disabled = true;
+        btn.querySelector('.btn-text').textContent = 'STARTING...';
+        
+        try {
+            const response = await fetch('/api/download-model', { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.status === 'exists') {
+                btn.classList.add('downloaded');
+                btn.querySelector('.btn-icon').textContent = '';
+                btn.querySelector('.btn-text').textContent = 'MODEL READY';
+                alert('Model already downloaded!');
+                return;
+            }
+            
+            if (data.status === 'started') {
+                // Poll for download progress
+                pollModelDownload(data.job_id);
+            }
+        } catch (error) {
+            console.error('Model download failed:', error);
+            alert('Failed to start model download: ' + error.message);
+            btn.disabled = false;
+            btn.querySelector('.btn-text').textContent = 'MODEL';
+        }
+    });
+}
+
+async function pollModelDownload(jobId) {
+    const btn = document.getElementById('download-model-btn');
+    
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/model-download-status/${jobId}`);
+            
+            // If job not found (404), stop polling
+            if (response.status === 404) {
+                clearInterval(pollInterval);
+                btn.disabled = false;
+                btn.querySelector('.btn-text').textContent = 'MODEL';
+                console.error('Job not found, stopping poll');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            // Update button text with progress and message
+            if (data.progress >= 0 && data.progress < 100) {
+                btn.querySelector('.btn-text').textContent = `${data.progress}%`;
+            }
+            
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                btn.classList.add('downloaded');
+                btn.querySelector('.btn-icon').textContent = '';
+                btn.querySelector('.btn-text').textContent = 'MODEL READY';
+                alert('Model downloaded successfully!');
+            } else if (data.status === 'failed') {
+                clearInterval(pollInterval);
+                btn.disabled = false;
+                btn.querySelector('.btn-text').textContent = 'MODEL';
+                alert('Model download failed: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(pollInterval);
+            btn.disabled = false;
+            btn.querySelector('.btn-text').textContent = 'MODEL';
+            console.error('Status poll failed:', error);
+        }
+    }, 1000);
+}
+
+// ============================================================================
 // Initial Load
 // ============================================================================
 
@@ -1057,4 +1184,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup remaining dropdowns if not covered by loadCollections
     setupCustomDropdown('query-collection');
     setupCustomDropdown('collection-select');
+    
+    // Setup model download button and check status
+    setupModelDownloadButton();
+    await checkModelStatus();
 });

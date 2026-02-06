@@ -27,6 +27,64 @@ body {
     text-align: center;
     padding: 20px;
     border-bottom: 1px solid #00FF00;
+    position: relative;
+}
+
+.model-download-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #000000;
+    color: #00FF00;
+    border: 1px solid #00FF00;
+    padding: 8px 15px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.model-download-btn:hover {
+    background-color: #00FF00;
+    color: #000000;
+}
+
+.model-download-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.model-download-btn.downloaded {
+    border-color: #666666;
+    color: #666666;
+}
+
+.model-download-btn.downloaded:hover {
+    background-color: transparent;
+    color: #666666;
+    cursor: default;
+}
+
+.model-download-btn .btn-icon {
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.model-download-btn .btn-text {
+    font-size: 11px;
+    pointer-events: none;
+}
+
+@media (max-width: 600px) {
+    .model-download-btn {
+        top: 10px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 10px;
+    }
 }
 
 .ascii-logo {

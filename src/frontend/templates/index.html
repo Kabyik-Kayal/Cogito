@@ -5,12 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cogito - Self-Correcting RAG</title>
-    <link rel="stylesheet" href="/static/style.css?v=8">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
     <!-- Header -->
     <header class="header">
+        <button id="download-model-btn" class="model-download-btn" title="Download LLM Model">
+            <span class="btn-icon">⬇</span>
+            <span class="btn-text">MODEL</span>
+        </button>
         <pre class="ascii-logo">
    ██████╗ ██████╗  ██████╗ ██╗████████╗ ██████╗ 
   ██╔════╝██╔═══██╗██╔════╝ ██║╚══██╔══╝██╔═══██╗
@@ -363,7 +367,7 @@
     <!-- Collections Datalist for combo-box inputs -->
     <datalist id="collections-list"></datalist>
 
-    <script src="/static/script.js?v=8"></script>
+    <script src="/static/script.js"></script>
 </body>
 
 </html>
