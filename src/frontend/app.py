@@ -809,15 +809,15 @@ async def download_model_endpoint(background_tasks: BackgroundTasks):
     """Download the LLM and ONNX embedding models if not already present."""
     try:
         from src.model.download_models import download_model
-        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_MODEL_PATH
+        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
         from pathlib import Path
         
         # Check if both models already exist
         llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
         
-        # Check both our cache and ChromaDB's hardcoded cache location
-        chroma_onnx = Path.home() / ".cache" / "chroma" / "onnx_models" / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
-        onnx_exists = ONNX_MODEL_PATH.exists() or chroma_onnx.exists()
+        # Check persistent ONNX location (in Docker volume via symlink)
+        persistent_onnx = ONNX_CACHE_DIR / "chroma" / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
+        onnx_exists = persistent_onnx.exists()
         
         if llm_exists and onnx_exists:
             return {"status": "exists", "message": "Models already downloaded"}
@@ -884,14 +884,14 @@ async def get_model_download_status(job_id: str):
 async def get_model_status():
     """Check if both LLM and ONNX embedding models are downloaded."""
     try:
-        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_MODEL_PATH
+        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
         from pathlib import Path
         
         llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
         
-        # Check both our cache and ChromaDB's hardcoded cache location
-        chroma_onnx = Path.home() / ".cache" / "chroma" / "onnx_models" / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
-        onnx_exists = ONNX_MODEL_PATH.exists() or chroma_onnx.exists()
+        # Check persistent ONNX location (in Docker volume via symlink)
+        persistent_onnx = ONNX_CACHE_DIR / "chroma" / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
+        onnx_exists = persistent_onnx.exists()
         
         both_downloaded = llm_exists and onnx_exists
         

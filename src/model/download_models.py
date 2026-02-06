@@ -31,72 +31,90 @@ def download_model_with_progress(url, destination, progress_callback=None):
                     progress_callback(percent, f"Downloaded {downloaded // (1024*1024)}MB / {total_size // (1024*1024)}MB")
 
 def download_onnx_model(progress_callback=None):
-    """Download ChromaDB ONNX embedding model for offline use."""
+    """
+    Download ChromaDB ONNX embedding model by initializing a test collection.
+    This lets ChromaDB handle the download to its expected location automatically.
+    Uses symlink to persist the model in Docker volume at /app/models/onnx_cache.
+    """
     try:
         from pathlib import Path
+        import chromadb
+        from chromadb.config import Settings
+        from chromadb.utils import embedding_functions
+        import shutil
         
-        ONNX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        # Set up symlink so ChromaDB's cache points to our Docker volume
+        # ChromaDB expects: ~/.cache/chroma/onnx_models
+        # We persist at: /app/models/onnx_cache/chroma (which is in Docker volume)
+        home_cache = Path.home() / ".cache" / "chroma"
+        onnx_models_link = home_cache / "onnx_models"
+        persistent_onnx_dir = ONNX_CACHE_DIR / "chroma"
         
-        # Check if model exists in ChromaDB's expected location
-        chroma_cache = Path.home() / ".cache" / "chroma" / "onnx_models" / "all-MiniLM-L6-v2" / "onnx"
-        chroma_model_file = chroma_cache / "model.onnx"
+        # Create the persistent directory structure
+        persistent_onnx_dir.mkdir(parents=True, exist_ok=True)
         
-        # Also check our custom cache location
-        if ONNX_MODEL_PATH.exists() or chroma_model_file.exists():
-            logger.info("ONNX embedding model already exists")
+        # If the link doesn't exist or points to the wrong place, set it up
+        if not onnx_models_link.exists() or not onnx_models_link.is_symlink():
+            # Remove if it's a regular directory
+            if onnx_models_link.exists() and not onnx_models_link.is_symlink():
+                shutil.rmtree(onnx_models_link)
+            # Create parent directory
+            home_cache.mkdir(parents=True, exist_ok=True)
+            # Create symlink
+            onnx_models_link.symlink_to(persistent_onnx_dir)
+            logger.info(f"Created symlink: {onnx_models_link} -> {persistent_onnx_dir}")
+        
+        # Check if model exists (now in persistent location via symlink)
+        chroma_model_file = persistent_onnx_dir / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
+        
+        if chroma_model_file.exists():
+            logger.info("ONNX embedding model already exists in persistent storage")
             if progress_callback:
                 progress_callback(10, "Embedding model ready")
             return
         
-        logger.info("Downloading ONNX embedding model...")
+        logger.info("Initializing ONNX embedding model download...")
         if progress_callback:
             progress_callback(2, "Downloading embedding model (~80MB)...")
         
-        # Download from ChromaDB's S3 bucket
-        onnx_url = "https://chroma-onnx-models.s3.amazonaws.com/all-MiniLM-L6-v2/onnx.tar.gz"
-        temp_tar = ONNX_CACHE_DIR / "onnx_temp.tar.gz"
+        # Create a temporary ChromaDB client
+        temp_db_path = ONNX_CACHE_DIR / "temp_chroma"
+        temp_db_path.mkdir(parents=True, exist_ok=True)
         
-        response = requests.get(onnx_url, stream=True, timeout=60)
-        response.raise_for_status()
+        client = chromadb.PersistentClient(
+            path=str(temp_db_path),
+            settings=Settings(anonymized_telemetry=False)
+        )
         
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
-        
-        with open(temp_tar, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if progress_callback and total_size > 0:
-                        percent = int((downloaded / total_size) * 5) + 2  # 2-7% range
-                        progress_callback(percent, f"Downloading embedding model... {downloaded // (1024*1024)}MB")
+        # Create embedding function (this triggers the download to persistent location via symlink)
+        embedding_function = embedding_functions.ONNXMiniLM_L6_V2()
         
         if progress_callback:
-            progress_callback(7, "Extracting embedding model...")
+            progress_callback(5, "Initializing embedding model...")
         
-        # Extract the tar.gz directly to ONNX_CACHE_DIR
-        # This creates ONNX_CACHE_DIR/onnx/ with model files
-        with tarfile.open(temp_tar, 'r:gz') as tar:
-            tar.extractall(path=ONNX_CACHE_DIR)
+        # Create a test collection with a sample document
+        collection = client.get_or_create_collection(
+            name="test_onnx_download",
+            embedding_function=embedding_function
+        )
         
-        # Clean up temp file
-        temp_tar.unlink()
+        # Add a test document (this ensures the model is fully loaded)
+        collection.add(
+            documents=["Test document to trigger ONNX model download"],
+            ids=["test_id"]
+        )
         
-        # CRITICAL: ChromaDB expects the model at a hardcoded path
-        # Copy to ChromaDB's expected location: ~/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx/
-        import shutil
-        from pathlib import Path
-        chroma_cache = Path.home() / ".cache" / "chroma" / "onnx_models" / "all-MiniLM-L6-v2"
-        chroma_cache.mkdir(parents=True, exist_ok=True)
+        if progress_callback:
+            progress_callback(8, "Embedding model downloaded successfully")
         
-        # Copy the extracted onnx folder to ChromaDB's expected location
-        source_onnx = ONNX_CACHE_DIR / "onnx"
-        dest_onnx = chroma_cache / "onnx"
-        if source_onnx.exists() and not dest_onnx.exists():
-            shutil.copytree(source_onnx, dest_onnx)
-            logger.info(f"Copied ONNX model to ChromaDB cache: {dest_onnx}")
+        # Clean up: delete the test collection and temporary database
+        client.delete_collection("test_onnx_download")
         
-        logger.info(f"ONNX embedding model extracted to: {ONNX_MODEL_PATH}")
+        # Remove temporary database directory
+        if temp_db_path.exists():
+            shutil.rmtree(temp_db_path)
+        
+        logger.info(f"ONNX embedding model downloaded to persistent storage: {chroma_model_file}")
         if progress_callback:
             progress_callback(10, "Embedding model ready")
             
