@@ -19,16 +19,16 @@ from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
 
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.requests import Request
 from pydantic import BaseModel
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 from config.paths import DATA_RAW_DIR
 from utils.logger import get_logger
@@ -809,13 +809,15 @@ async def download_model_endpoint(background_tasks: BackgroundTasks):
     """Download the LLM and ONNX embedding models if not already present."""
     try:
         from src.model.download_models import download_model
-        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
+        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_MODEL_PATH
+        from pathlib import Path
         
         # Check if both models already exist
         llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
-        # ChromaDB extracts ONNX model to onnx_cache/onnx/
-        onnx_model_file = ONNX_CACHE_DIR / "onnx" / "model.onnx"
-        onnx_exists = onnx_model_file.exists()
+        
+        # Check both our cache and ChromaDB's hardcoded cache location
+        chroma_onnx = Path.home() / ".cache" / "chroma" / "onnx_models" / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
+        onnx_exists = ONNX_MODEL_PATH.exists() or chroma_onnx.exists()
         
         if llm_exists and onnx_exists:
             return {"status": "exists", "message": "Models already downloaded"}
@@ -882,12 +884,14 @@ async def get_model_download_status(job_id: str):
 async def get_model_status():
     """Check if both LLM and ONNX embedding models are downloaded."""
     try:
-        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
+        from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_MODEL_PATH
+        from pathlib import Path
         
         llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
-        # ChromaDB extracts ONNX model to onnx_cache/onnx/
-        onnx_model_file = ONNX_CACHE_DIR / "onnx" / "model.onnx"
-        onnx_exists = onnx_model_file.exists()
+        
+        # Check both our cache and ChromaDB's hardcoded cache location
+        chroma_onnx = Path.home() / ".cache" / "chroma" / "onnx_models" / "all-MiniLM-L6-v2" / "onnx" / "model.onnx"
+        onnx_exists = ONNX_MODEL_PATH.exists() or chroma_onnx.exists()
         
         both_downloaded = llm_exists and onnx_exists
         

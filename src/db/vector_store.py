@@ -6,15 +6,16 @@ Each document is stored with its content, embeddings and metadata
 including the NetworkX node_id for graph expansion.
 """
 
+import os
+import sys
+from config.paths import CHROMA_DB_DIR, ONNX_CACHE_DIR
+
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 from typing import List, Dict, Any, Optional
-from config.paths import CHROMA_DB_DIR, ONNX_CACHE_DIR
 from utils.logger import get_logger
 from utils.custom_exception import CustomException
-import sys
-import os
 
 logger = get_logger(__name__)
 
@@ -49,9 +50,6 @@ class VectorStore:
             
             # Create ONNX cache directory if it doesn't exist
             ONNX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            
-            # Set environment variable for ONNX model cache (ChromaDB uses this)
-            os.environ['ONNX_MODELS_DIR'] = str(ONNX_CACHE_DIR)
             
             #Initialize ChromaDB client (persistent storage)
             self.client = chromadb.PersistentClient(

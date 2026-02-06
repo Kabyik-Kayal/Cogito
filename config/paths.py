@@ -8,6 +8,7 @@ BASE_DIR = pathlib.Path(__file__).parent.parent
 # Model directories
 MODEL_DIR = BASE_DIR / "models"
 ONNX_CACHE_DIR = MODEL_DIR / "onnx_cache"  # Persistent cache for ONNX embedding models
+ONNX_MODEL_PATH = ONNX_CACHE_DIR / "onnx" / "model.onnx"  # Extracted ONNX model file
 MISTRAL_GGUF_MODEL_PATH = MODEL_DIR / "models--mistralai--Ministral-3-8B-Reasoning-2512-GGUF/snapshots/4413bc9b7b091ddad28101650d1395f5e045a328/Ministral-3-8B-Reasoning-2512-Q8_0.gguf"
 
 # Data directories (for scraped docs)
