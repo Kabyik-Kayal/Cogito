@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large runtime data (mounted as volumes)
+models/
+db/
+data/
+logs/
+results/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment secrets
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Docs/assets
+assets/
+LICENSE
+readme.md

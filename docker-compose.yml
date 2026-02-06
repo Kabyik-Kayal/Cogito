@@ -1,0 +1,54 @@
+# ============================================================================
+# Cogito — Docker Compose
+# ============================================================================
+# Usage:
+#   docker compose up              — start the app
+#   docker compose up --build      — rebuild & start
+#   docker compose up -d           — start in background
+#   docker compose down            — stop & remove containers
+#
+#   Ingest docs:
+#     docker compose run --rm cogito python scripts/ingest.py --url "https://example.com/docs"
+#
+#   Evaluate:
+#     docker compose run --rm cogito python scripts/evaluate.py
+#
+#   Download model:
+#     docker compose run --rm cogito python -m src.model.download_models
+# ============================================================================
+
+services:
+  cogito:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cogito
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Docker-managed volumes — data lives inside Docker, persists across restarts
+      - models:/app/models
+      - db:/app/db
+      - data:/app/data
+    # Resource limits (adjust to your hardware)
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+# Named volumes — managed by Docker, persist across container lifecycle
+volumes:
+  models:
+  db:
+  data:

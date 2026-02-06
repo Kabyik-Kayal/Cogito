@@ -17,8 +17,9 @@ logs/
 *.swo
 
 # Data (large files)
-data/chromadb/
-data/graph/*.pkl
+db/chromadb/
+db/graph/*.pkl
+data/
 *.gguf
 models/
 *.pkl
