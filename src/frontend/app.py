@@ -813,8 +813,9 @@ async def download_model_endpoint(background_tasks: BackgroundTasks):
         
         # Check if both models already exist
         llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
-        onnx_model_path = ONNX_CACHE_DIR / "all-MiniLM-L6-v2"
-        onnx_exists = onnx_model_path.exists() and any(onnx_model_path.iterdir())
+        # ChromaDB extracts ONNX model to onnx_cache/onnx/
+        onnx_model_file = ONNX_CACHE_DIR / "onnx" / "model.onnx"
+        onnx_exists = onnx_model_file.exists()
         
         if llm_exists and onnx_exists:
             return {"status": "exists", "message": "Models already downloaded"}
@@ -884,8 +885,9 @@ async def get_model_status():
         from config.paths import MISTRAL_GGUF_MODEL_PATH, ONNX_CACHE_DIR
         
         llm_exists = MISTRAL_GGUF_MODEL_PATH.exists()
-        onnx_model_path = ONNX_CACHE_DIR / "all-MiniLM-L6-v2"
-        onnx_exists = onnx_model_path.exists() and any(onnx_model_path.iterdir())
+        # ChromaDB extracts ONNX model to onnx_cache/onnx/
+        onnx_model_file = ONNX_CACHE_DIR / "onnx" / "model.onnx"
+        onnx_exists = onnx_model_file.exists()
         
         both_downloaded = llm_exists and onnx_exists
         

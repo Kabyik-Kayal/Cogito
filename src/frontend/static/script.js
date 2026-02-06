@@ -39,6 +39,42 @@ function hideLoading() {
 }
 
 // ============================================================================
+// Custom Alert Modal
+// ============================================================================
+
+function showAlert(message, type = 'info') {
+    const modal = document.getElementById('alert-modal');
+    const title = document.getElementById('alert-modal-title');
+    const messageEl = document.getElementById('alert-modal-message');
+    
+    // Set title based on type
+    const titles = {
+        'info': 'NOTIFICATION',
+        'success': 'SUCCESS',
+        'warning': 'WARNING',
+        'error': 'ERROR'
+    };
+    
+    title.textContent = titles[type] || titles.info;
+    messageEl.textContent = message;
+    
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+// Handle alert modal close
+document.getElementById('alert-modal-close').addEventListener('click', () => {
+    document.getElementById('alert-modal').classList.add('hidden');
+});
+
+// Close alert modal when clicking outside
+document.getElementById('alert-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'alert-modal') {
+        document.getElementById('alert-modal').classList.add('hidden');
+    }
+});
+
+// ============================================================================
 // Status Updates
 // ============================================================================
 
@@ -414,11 +450,11 @@ document.getElementById('query-form').addEventListener('submit', async (e) => {
         if (response.ok) {
             pollQueryStatus(data.job_id);
         } else {
-            alert(`Error: ${data.detail}`);
+            showAlert(`Error: ${data.detail}`, 'error');
             document.getElementById('query-progress').classList.add('hidden');
         }
     } catch (error) {
-        alert(`Error: ${error.message}`);
+        showAlert(`Error: ${error.message}`, 'error');
         document.getElementById('query-progress').classList.add('hidden');
     }
 });
@@ -457,7 +493,7 @@ function pollQueryStatus(jobId) {
 
             } else if (job.status === 'failed') {
                 clearInterval(pollInterval);
-                alert('Query Failed: ' + (job.error || 'Unknown error'));
+                showAlert('Query Failed: ' + (job.error || 'Unknown error'), 'error');
             }
         } catch (e) {
             console.error("Polling error", e);
@@ -1104,7 +1140,7 @@ function setupModelDownloadButton() {
                 btn.classList.add('downloaded');
                 btn.querySelector('.btn-icon').textContent = '';
                 btn.querySelector('.btn-text').textContent = 'MODEL READY';
-                alert('Model already downloaded!');
+                showAlert('Model already downloaded!', 'info');
                 return;
             }
             
@@ -1114,7 +1150,7 @@ function setupModelDownloadButton() {
             }
         } catch (error) {
             console.error('Model download failed:', error);
-            alert('Failed to start model download: ' + error.message);
+            showAlert('Failed to start model download: ' + error.message, 'error');
             btn.disabled = false;
             btn.querySelector('.btn-text').textContent = 'MODEL';
         }
@@ -1149,12 +1185,12 @@ async function pollModelDownload(jobId) {
                 btn.classList.add('downloaded');
                 btn.querySelector('.btn-icon').textContent = '';
                 btn.querySelector('.btn-text').textContent = 'MODEL READY';
-                alert('Model downloaded successfully!');
+                showAlert('Model downloaded successfully!', 'success');
             } else if (data.status === 'failed') {
                 clearInterval(pollInterval);
                 btn.disabled = false;
                 btn.querySelector('.btn-text').textContent = 'MODEL';
-                alert('Model download failed: ' + (data.error || 'Unknown error'));
+                showAlert('Model download failed: ' + (data.error || 'Unknown error'), 'error');
             }
         } catch (error) {
             clearInterval(pollInterval);

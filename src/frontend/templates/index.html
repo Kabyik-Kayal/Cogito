@@ -346,7 +346,7 @@
     <!-- Delete Confirmation Modal -->
     <div id="delete-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">⚠️ CONFIRM DELETION</h3>
+            <h3 class="modal-title">CONFIRM DELETION</h3>
             <div class="modal-content">
                 <p>This will <strong>permanently delete</strong> the collection:</p>
                 <p class="modal-collection-name" id="delete-modal-collection"></p>
@@ -360,6 +360,19 @@
             <div class="modal-buttons">
                 <button id="delete-cancel-btn" class="btn">CANCEL</button>
                 <button id="delete-confirm-btn" class="btn btn-danger">DELETE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal (for notifications) -->
+    <div id="alert-modal" class="modal-overlay hidden">
+        <div class="modal-box alert-modal-box">
+            <h3 class="modal-title" id="alert-modal-title">NOTIFICATION</h3>
+            <div class="modal-content">
+                <p id="alert-modal-message"></p>
+            </div>
+            <div class="modal-buttons">
+                <button id="alert-modal-close" class="btn">OK</button>
             </div>
         </div>
     </div>

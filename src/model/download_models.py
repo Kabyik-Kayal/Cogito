@@ -35,10 +35,13 @@ def download_onnx_model(progress_callback=None):
     try:
         ONNX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         
-        # Check if model already exists
-        onnx_model_path = ONNX_CACHE_DIR / "all-MiniLM-L6-v2"
-        if onnx_model_path.exists() and any(onnx_model_path.iterdir()):
+        # Check if model already exists (ChromaDB extracts to onnx_cache/onnx/)
+        onnx_model_file = ONNX_CACHE_DIR / "onnx" / "model.onnx"
+        
+        if onnx_model_file.exists():
             logger.info("ONNX embedding model already exists")
+            if progress_callback:
+                progress_callback(10, "Embedding model ready")
             return
         
         logger.info("Downloading ONNX embedding model...")

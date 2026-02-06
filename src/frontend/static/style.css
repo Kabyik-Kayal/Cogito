@@ -757,6 +757,17 @@ h3 {
     width: 90%;
 }
 
+/* Alert modal variant - smaller and simpler */
+.alert-modal-box {
+    max-width: 400px;
+    border: 2px solid #00FF00;
+}
+
+.alert-modal-box .modal-title {
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
 .modal-title {
     color: #FF0000;
     margin: 0 0 20px 0;
