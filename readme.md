@@ -186,10 +186,14 @@ open http://localhost:8000
 **Download the models:**
 1. Open http://localhost:8000
 2. Click the "MODEL" button in the top-right corner
-3. Wait for the download to complete (~9GB LLM + ~80MB embeddings)
-4. The button will show "MODEL READY" when done
+3. Wait for the download to complete:
+   - **Embedding model** (~80MB, 2-10%) - Downloads via ChromaDB AWS S3
+   - **LLM model** (~9GB, 10-100%) - Downloads from HuggingFace
+4. The button will show "MODEL READY" when both models are downloaded
 
-That's it! The models and data persist in Docker volumes across restarts.
+That's it! Both models persist in Docker volumes across restarts:
+- **LLM**: Stored in `/app/models` volume
+- **ONNX Embeddings**: Stored in `/app/models/onnx_cache/chroma` via symlink to ChromaDB cache
 
 **Useful Docker commands:**
 ```bash
@@ -209,7 +213,7 @@ docker exec -it cogito sh
 docker system df -v
 ```
 
-### Option 2: Local Python Setup
+### Option 2: Local Python Setup (Recommended for Mac)
 
 For development or if you prefer running directly on your machine:
 
@@ -292,9 +296,12 @@ When running in Docker, data persists in named volumes:
 
 | Volume | Mount Point | Purpose |
 |--------|-------------|---------||
-| `cogito_models` | `/app/models` | LLM and ONNX models |
-| `cogito_db` | `/app/db` | ChromaDB and graph data |
-| `cogito_data` | `/app/data` | Uploaded documents |
+| `cogito_models` | `/app/models` | LLM (9GB) and ONNX embedding models (80MB) with symlinked cache |
+| `cogito_db` | `/app/db` | ChromaDB vector storage and NetworkX graph data |
+| `cogito_data` | `/app/data` | Uploaded documents and scraped content |
+
+> [!NOTE]
+> The ONNX embedding model uses a symlink from `~/.cache/chroma/onnx_models` to `/app/models/onnx_cache/chroma` to ensure ChromaDB finds the model while keeping it in the persistent Docker volume.
 
 **To inspect volumes:**
 ```bash
@@ -323,11 +330,11 @@ docker compose up --build -d
 |-------|----------|
 | **Out of Memory (GPU)** | Use a smaller model (3B) or reduce `n_ctx` in generate.py |
 | **Slow inference** | Ensure GPU acceleration is enabled; check Metal/CUDA setup |
-| **Model not found** | Click the "MODEL" button in the web UI or run `python -m src.model.download_models` |
+| **Model not found** | Click the "MODEL" button in the web UI to download both models |
 | **ChromaDB errors** | Delete `db/chroma/` directory and re-ingest documents |
 | **Port 8000 already in use** | Change port in docker-compose.yml or kill the process using the port |
 | **Docker build fails** | Ensure you have at least 10GB free disk space; try `docker system prune` |
-| **ONNX model re-downloads** | Check that `ONNX_CACHE_DIR` is properly mounted as a Docker volume |
+| **ONNX model re-downloads** | Model should persist via symlink; check `/app/models/onnx_cache/chroma` exists |
 | **Container won't start** | Check logs with `docker compose logs cogito` |
 | **Ingestion hangs** | Check browser console for errors; progress auto-hides after 20 seconds on success |
 
