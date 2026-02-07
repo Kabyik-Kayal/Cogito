@@ -1,0 +1,61 @@
+# ============================================================================
+# Cogito — Docker Compose for NVIDIA GPU
+# ============================================================================
+# Prerequisites:
+#   - NVIDIA GPU drivers installed on host
+#   - NVIDIA Container Toolkit installed
+#     (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+#
+# Usage:
+#   docker compose -f docker-compose.nvidia.yml up              — start the app
+#   docker compose -f docker-compose.nvidia.yml up --build      — rebuild & start
+#   docker compose -f docker-compose.nvidia.yml up -d           — start in background
+#   docker compose -f docker-compose.nvidia.yml down            — stop & remove containers
+#
+# Verify GPU access:
+#   docker exec cogito-nvidia nvidia-smi
+# ============================================================================
+
+services:
+  cogito:
+    build:
+      context: .
+      dockerfile: Dockerfile.nvidia
+    image: cogito:nvidia
+    container_name: cogito-nvidia
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Docker-managed volumes — data lives inside Docker, persists across restarts
+      - models:/app/models
+      - db:/app/db
+      - data:/app/data
+    # NVIDIA GPU access via Container Toolkit
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+        limits:
+          memory: 16G
+        # reservations:
+        #   memory: 4G
+    # Environment variables for CUDA
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+# Named volumes — managed by Docker, persist across container lifecycle
+volumes:
+  models:
+  db:
+  data:

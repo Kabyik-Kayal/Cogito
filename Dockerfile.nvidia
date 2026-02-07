@@ -1,0 +1,159 @@
+# ============================================================================
+# Cogito - Self-Correcting RAG System
+# Optimized NVIDIA GPU Dockerfile with CUDA 12.4.1
+# ============================================================================
+# Build size optimizations:
+#   - Multi-stage build to exclude build tools from runtime
+#   - Targeted GPU architectures (75,80,86,89,90) instead of "all"
+#   - Minimal base image (runtime vs devel)
+#   - Aggressive cleanup of build artifacts and caches
+#
+# Prerequisites:
+#   - NVIDIA GPU drivers ≥ 525.60.13 (for CUDA 12.4)
+#   - NVIDIA Container Toolkit installed
+#
+# Build & Run:
+#   docker compose -f docker-compose.nvidia.yml build --no-cache
+#   docker compose -f docker-compose.nvidia.yml up
+# ============================================================================
+
+
+# ---------------------------------------------------------------------------
+# Stage 1: Builder - Compile llama-cpp-python with CUDA support
+# ---------------------------------------------------------------------------
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install minimal build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    python3.11 \
+    python3.11-venv \
+    python3.11-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
+WORKDIR /build
+
+# Copy only requirements first for better layer caching
+COPY requirements.txt .
+
+# CUDA compilation settings for llama-cpp-python
+# Target specific GPU architectures to reduce build size dramatically:
+#   75 = Turing (RTX 20xx, T4)
+#   80 = Ampere (A100)
+#   86 = Ampere (RTX 30xx)
+#   89 = Ada Lovelace (RTX 40xx, L4, L40)
+#   90 = Hopper (H100)
+# Using "all" can increase size by 2-3GB - avoid it!
+ENV CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;90" \
+    FORCE_CMAKE=1 \
+    CUDA_DOCKER_ARCH="75;80;86;89;90"
+
+# Create venv and install dependencies
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Install Python dependencies with CUDA support
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# Aggressive cleanup of build artifacts to minimize layer size
+RUN find /opt/venv -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true \
+    && find /opt/venv -type d -name '*.dist-info' -exec rm -rf {}/direct_url.json {} + 2>/dev/null || true \
+    && find /opt/venv -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true \
+    && find /opt/venv -type f -name '*.pyc' -delete \
+    && find /opt/venv -type f -name '*.pyo' -delete \
+    && find /opt/venv -type f -name '*.c' -delete \
+    && find /opt/venv -type f -name '*.cpp' -delete \
+    && rm -rf /opt/venv/share/man/* \
+    && rm -rf /opt/venv/lib/python3.11/site-packages/pip
+
+
+# ---------------------------------------------------------------------------
+# Stage 2: Runtime - Minimal CUDA runtime for inference
+# ---------------------------------------------------------------------------
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
+
+# Runtime image includes:
+#   - CUDA runtime libraries
+#   - cuBLAS (required for llama-cpp-python)
+#   - Significantly smaller than devel image (~2GB vs ~5GB)
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+# Install minimal runtime dependencies
+# libgomp1: Required for OpenMP support in llama.cpp
+# curl: Required for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    libgomp1 \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && rm -rf /var/cache/apt/archives/* \
+    && rm -rf /tmp/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
+# Copy pre-built virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Create non-root user and application directories
+# Using single RUN for better layer efficiency
+RUN groupadd --gid 1000 cogito \
+    && useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home cogito \
+    && mkdir -p \
+        /app/data/raw/uploads \
+        /app/data/processed \
+        /app/db/chroma \
+        /app/db/graph \
+        /app/models \
+        /app/logs \
+        /app/results \
+    && chown -R cogito:cogito /app
+
+WORKDIR /app
+
+# Copy application code
+# Using --chown in COPY is more efficient than separate chown
+COPY --chown=cogito:cogito config/ ./config/
+COPY --chown=cogito:cogito src/ ./src/
+COPY --chown=cogito:cogito utils/ ./utils/
+COPY --chown=cogito:cogito scripts/ ./scripts/
+
+# Switch to non-root user (security best practice)
+USER cogito
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Healthcheck configuration
+# Increased start-period for model loading time
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8000/health || curl -f http://localhost:8000/ || exit 1
+
+# Labels for better container management
+LABEL maintainer="cogito-dev" \
+      version="1.0" \
+      description="Cogito Self-Correcting RAG System with CUDA 12.4.1" \
+      cuda.version="12.4.1" \
+      python.version="3.11"
+
+# Default command: Run FastAPI server
+# Using exec form for better signal handling
+CMD ["uvicorn", "src.frontend.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
