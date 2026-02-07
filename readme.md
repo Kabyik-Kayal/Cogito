@@ -283,7 +283,7 @@ You can also find the info of the available Collections, initialize them before 
 Cogito is configured via the `config/paths.py` file:
 
 | Setting | Description | Default |
-|---------|-------------|---------||
+|---------|-------------|---------|
 | `MODEL_DIR` | Directory for LLM models | `models/` |
 | `ONNX_CACHE_DIR` | ONNX embedding model cache | `models/onnx_cache/` |
 | `CHROMA_DB_DIR` | ChromaDB persistence directory | `db/chroma/` |
@@ -295,7 +295,7 @@ Cogito is configured via the `config/paths.py` file:
 When running in Docker, data persists in named volumes:
 
 | Volume | Mount Point | Purpose |
-|--------|-------------|---------||
+|--------|-------------|---------|
 | `cogito_models` | `/app/models` | LLM (9GB) and ONNX embedding models (80MB) with symlinked cache |
 | `cogito_db` | `/app/db` | ChromaDB vector storage and NetworkX graph data |
 | `cogito_data` | `/app/data` | Uploaded documents and scraped content |
