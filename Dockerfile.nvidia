@@ -128,6 +128,9 @@ USER cogito
 
 EXPOSE 8000
 
+# Override the NVIDIA base image entrypoint (nvidia_entrypoint.sh)
+ENTRYPOINT []
+
 # Healthcheck — increased start-period for model loading
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8000/health || curl -f http://localhost:8000/ || exit 1
