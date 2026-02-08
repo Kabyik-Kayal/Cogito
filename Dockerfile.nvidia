@@ -1,112 +1,101 @@
 # ============================================================================
 # Cogito - Self-Correcting RAG System
-# Optimized NVIDIA GPU Dockerfile with CUDA 12.4.1
+# NVIDIA GPU Dockerfile — uses pre-built CUDA wheels from JamePeng fork
 # ============================================================================
-# Build size optimizations:
-#   - Multi-stage build to exclude build tools from runtime
-#   - Targeted GPU architectures (75,80,86,89,90) instead of "all"
-#   - Minimal base image (runtime vs devel)
-#   - Aggressive cleanup of build artifacts and caches
+# Uses pre-built llama-cpp-python CUDA wheel from:
+#   https://github.com/JamePeng/llama-cpp-python/releases
+#
+# Advantages:
+#   - No CUDA devel image needed (no nvcc / cmake / build-essential)
+#   - Build completes in minutes instead of 15-20 min compilation
+#   - Still uses the required JamePeng/llama-cpp-python fork
+#   - The wheel bundles all GPU architectures (SM75–SM90+)
 #
 # Prerequisites:
 #   - NVIDIA GPU drivers ≥ 525.60.13 (for CUDA 12.4)
 #   - NVIDIA Container Toolkit installed
+#     https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 #
 # Build & Run:
-#   docker compose -f docker-compose.nvidia.yml build --no-cache
+#   docker compose -f docker-compose.nvidia.yml build
 #   docker compose -f docker-compose.nvidia.yml up
+#
+# To update llama-cpp-python version, change LLAMA_CPP_VERSION build arg:
+#   docker compose -f docker-compose.nvidia.yml build \
+#     --build-arg LLAMA_CPP_VERSION=0.3.25 \
+#     --build-arg LLAMA_CPP_RELEASE_DATE=20260301
+#
+# Verify GPU access:
+#   docker exec cogito-nvidia nvidia-smi
 # ============================================================================
 
 
 # ---------------------------------------------------------------------------
-# Stage 1: Builder - Compile llama-cpp-python with CUDA support
+# Stage 1: Builder — install deps + pre-built CUDA wheel (no compilation)
 # ---------------------------------------------------------------------------
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
+# python:3.11-slim is sufficient — we're only downloading wheels, not compiling.
+# No need for the 4GB nvidia/cuda:devel image.
+FROM python:3.11-slim AS builder
 
-# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install minimal build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    git \
-    python3.11 \
-    python3.11-venv \
-    python3.11-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Set Python 3.11 as default
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
-    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+# Build args for the llama-cpp-python pre-built wheel
+# Update these to pick up new releases from:
+#   https://github.com/JamePeng/llama-cpp-python/releases
+ARG LLAMA_CPP_VERSION=0.3.24
+ARG CUDA_SHORT=cu124
+ARG LLAMA_CPP_RELEASE_DATE=20260208
+ARG LLAMA_CPP_WHEEL_URL="https://github.com/JamePeng/llama-cpp-python/releases/download/v${LLAMA_CPP_VERSION}-${CUDA_SHORT}-Basic-linux-${LLAMA_CPP_RELEASE_DATE}/llama_cpp_python-${LLAMA_CPP_VERSION}+${CUDA_SHORT}.basic-cp311-cp311-linux_x86_64.whl"
 
 WORKDIR /build
-
-# Copy only requirements first for better layer caching
 COPY requirements.txt .
 
-# CUDA compilation settings for llama-cpp-python
-# Target specific GPU architectures to reduce build size dramatically:
-#   75 = Turing (RTX 20xx, T4)
-#   80 = Ampere (A100)
-#   86 = Ampere (RTX 30xx)
-#   89 = Ada Lovelace (RTX 40xx, L4, L40)
-#   90 = Hopper (H100)
-# Using "all" can increase size by 2-3GB - avoid it!
-ENV CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;90" \
-    FORCE_CMAKE=1 \
-    CUDA_DOCKER_ARCH="75;80;86;89;90"
+# Create venv, install all deps except llama-cpp-python,
+# then install the pre-built CUDA wheel from the fork's releases
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && grep -vi "llama-cpp-python" requirements.txt > requirements-filtered.txt \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements-filtered.txt \
+    && /opt/venv/bin/pip install --no-cache-dir "${LLAMA_CPP_WHEEL_URL}"
 
-# Create venv and install dependencies
-RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
-
-# Install Python dependencies with CUDA support
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
-
-# Aggressive cleanup of build artifacts to minimize layer size
+# Clean up to reduce image size
 RUN find /opt/venv -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true \
-    && find /opt/venv -type d -name '*.dist-info' -exec rm -rf {}/direct_url.json {} + 2>/dev/null || true \
     && find /opt/venv -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true \
     && find /opt/venv -type f -name '*.pyc' -delete \
     && find /opt/venv -type f -name '*.pyo' -delete \
-    && find /opt/venv -type f -name '*.c' -delete \
-    && find /opt/venv -type f -name '*.cpp' -delete \
     && rm -rf /opt/venv/share/man/* \
     && rm -rf /opt/venv/lib/python3.11/site-packages/pip
 
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime - Minimal CUDA runtime for inference
+# Stage 2: Runtime — CUDA runtime image for GPU inference
 # ---------------------------------------------------------------------------
+# nvidia/cuda:12.4.1-runtime includes libcudart.
+# We add libcublas-12-4 for GPU-accelerated matrix ops required by llama.cpp.
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
-
-# Runtime image includes:
-#   - CUDA runtime libraries
-#   - cuBLAS (required for llama-cpp-python)
-#   - Significantly smaller than devel image (~2GB vs ~5GB)
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/opt/venv/bin:$PATH"
+    PATH="/opt/venv/bin:$PATH" \
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 
-# Install minimal runtime dependencies
-# libgomp1: Required for OpenMP support in llama.cpp
-# curl: Required for healthcheck
+# Minimal runtime deps
+# libgomp1:       OpenMP support for llama.cpp parallel inference
+# libcublas-12-4: cuBLAS runtime for GPU-accelerated matrix ops
+# curl:           healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-venv \
     libgomp1 \
+    libcublas-12-4 \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
-    && rm -rf /var/cache/apt/archives/* \
-    && rm -rf /tmp/*
+    && rm -rf /var/cache/apt/archives/* /tmp/*
 
-# Set Python 3.11 as default
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
@@ -114,7 +103,6 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 COPY --from=builder /opt/venv /opt/venv
 
 # Create non-root user and application directories
-# Using single RUN for better layer efficiency
 RUN groupadd --gid 1000 cogito \
     && useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home cogito \
     && mkdir -p \
@@ -130,30 +118,25 @@ RUN groupadd --gid 1000 cogito \
 WORKDIR /app
 
 # Copy application code
-# Using --chown in COPY is more efficient than separate chown
 COPY --chown=cogito:cogito config/ ./config/
 COPY --chown=cogito:cogito src/ ./src/
 COPY --chown=cogito:cogito utils/ ./utils/
 COPY --chown=cogito:cogito scripts/ ./scripts/
 
-# Switch to non-root user (security best practice)
+# Switch to non-root user
 USER cogito
 
-# Expose FastAPI port
 EXPOSE 8000
 
-# Healthcheck configuration
-# Increased start-period for model loading time
+# Healthcheck — increased start-period for model loading
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8000/health || curl -f http://localhost:8000/ || exit 1
 
-# Labels for better container management
 LABEL maintainer="cogito-dev" \
       version="1.0" \
       description="Cogito Self-Correcting RAG System with CUDA 12.4.1" \
       cuda.version="12.4.1" \
       python.version="3.11"
 
-# Default command: Run FastAPI server
-# Using exec form for better signal handling
+# Run FastAPI server (single worker — model is not fork-safe)
 CMD ["uvicorn", "src.frontend.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

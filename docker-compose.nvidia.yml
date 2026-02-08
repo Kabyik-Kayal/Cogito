@@ -1,10 +1,10 @@
 # ============================================================================
-# Cogito — Docker Compose for NVIDIA GPU
+# Cogito — Docker Compose for NVIDIA GPU (pre-built CUDA wheels)
 # ============================================================================
 # Prerequisites:
-#   - NVIDIA GPU drivers installed on host
+#   - NVIDIA GPU drivers ≥ 525.60.13 (for CUDA 12.4)
 #   - NVIDIA Container Toolkit installed
-#     (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+#     https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 #
 # Usage:
 #   docker compose -f docker-compose.nvidia.yml up              — start the app
@@ -14,6 +14,7 @@
 #
 # Verify GPU access:
 #   docker exec cogito-nvidia nvidia-smi
+#   docker exec cogito-nvidia python -c "from llama_cpp import Llama; print('CUDA OK')"
 # ============================================================================
 
 services:
