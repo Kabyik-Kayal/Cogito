@@ -99,6 +99,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
+# The builder venv was created with python:3.11-slim where Python lives at
+# /usr/local/bin/python3.11, but this runtime image has it at /usr/bin/python3.11.
+# Create symlinks so the venv's recorded paths resolve correctly.
+RUN ln -sf /usr/bin/python3.11 /usr/local/bin/python3.11 \
+    && ln -sf /usr/bin/python3.11 /usr/local/bin/python3 \
+    && ln -sf /usr/bin/python3.11 /usr/local/bin/python
+
 # Copy pre-built virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
