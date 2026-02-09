@@ -129,11 +129,18 @@ Cogito/
 ├── config/                 # Configuration files
 │   └── paths.py            # Path constants (Model paths, DB paths)
 ├── data/                   # The Raw Materials (PDFs, HTML)
-├── models/                 # The Brains (GGUF files go here)
-│   └── onnx_cache/         # ONNX embedding models cache
+├── docker-compose.yml      # Docker Compose for CPU/Metal
+├── docker-compose.nvidia.yml  # Docker Compose for NVIDIA GPUs
+├── Dockerfile              # Container image (CPU/Metal)
+├── Dockerfile.nvidia       # Container image (NVIDIA CUDA)
+├── requirements.txt        # Python dependencies
 ├── db/                     # Database Storage
 │   ├── chroma/             # Vector database (ChromaDB)
 │   └── graph/              # Graph database (NetworkX pickles)
+├── logs/                   # Application logs
+├── models/                 # The Brains (GGUF files go here)
+│   └── onnx_cache/         # ONNX embedding models cache
+├── results/                # Evaluation and query results
 ├── scripts/
 │   ├── evaluate.py         # Run evaluation metrics
 │   └── ingest.py           # CLI tool for ingestion (Scrapes & Indexes data)
@@ -145,11 +152,15 @@ Cogito/
 │   │   ├── evaluator.py    # DeepEval integration logic
 │   │   └── metrics.py      # Custom faithfulness/hallucination metrics
 │   ├── frontend/
-│   │   └── app.py          # FastAPI server with web UI
+│   │   ├── app.py          # FastAPI server with web UI
+│   │   ├── static/         # CSS and JavaScript assets
+│   │   └── templates/      # HTML templates (Jinja2)
 │   ├── ingestion/
 │   │   ├── parser.py       # Chunking & Node creation logic
 │   │   ├── pipeline.py     # Orchestrates scraping -> graph -> db
 │   │   └── scraper.py      # Fetches raw documentation
+│   ├── model/
+│   │   └── download_models.py  # Model downloader (LLM & ONNX)
 │   ├── nodes/              # The Workers (LangGraph Nodes)
 │   │   ├── audit.py        # The Professor (Hallucination Checker)
 │   │   ├── generate.py     # The Writer (Drafts answers)
@@ -160,6 +171,7 @@ Cogito/
 │   └── state.py            # The Data Schema (GraphState TypedDict)
 └── utils/                  # The Wrenches
     ├── custom_exception.py
+    ├── gpu_selector.py     # GPU/CPU device selection utility
     └── logger.py           # Centralized logging
 ```
 
@@ -213,7 +225,44 @@ docker exec -it cogito sh
 docker system df -v
 ```
 
-### Option 2: Local Python Setup (Recommended for Mac)
+### Option 2: Docker with NVIDIA GPU
+
+For systems with NVIDIA GPUs and CUDA support:
+
+**Prerequisites:**
+- NVIDIA GPU drivers ≥ 525.60.13 (for CUDA 12.4)
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed
+
+```bash
+# Build and start with NVIDIA GPU support
+docker compose -f docker-compose.nvidia.yml up --build -d
+
+# Access the web UI
+open http://localhost:8000
+```
+
+**Verify GPU access:**
+```bash
+# Check NVIDIA driver and GPU
+docker exec cogito-nvidia nvidia-smi
+
+# Verify CUDA support in llama.cpp
+docker exec cogito-nvidia python -c "from llama_cpp import Llama; print('CUDA OK')"
+```
+
+**Useful commands:**
+```bash
+# View logs
+docker compose -f docker-compose.nvidia.yml logs -f cogito
+
+# Stop the container
+docker compose -f docker-compose.nvidia.yml down
+
+# Restart after code changes
+docker compose -f docker-compose.nvidia.yml up --build -d
+```
+
+### Option 3: Local Python Setup (Recommended for Mac)
 
 For development or if you prefer running directly on your machine:
 
@@ -275,8 +324,9 @@ You can also find the info of the available Collections, initialize them before 
 
 **Collection operations:**
 - **List:** View all available collections and their document counts
-- **Initialize:** Pre-load collection into memory for faster queries
 - **Delete:** Remove a collection and all its documents permanently
+
+
 
 ## Configuration
 
@@ -299,6 +349,16 @@ When running in Docker, data persists in named volumes:
 | `cogito_models` | `/app/models` | LLM (9GB) and ONNX embedding models (80MB) with symlinked cache |
 | `cogito_db` | `/app/db` | ChromaDB vector storage and NetworkX graph data |
 | `cogito_data` | `/app/data` | Uploaded documents and scraped content |
+
+### Custom Models
+
+To use a different GGUF model (e.g., Llama-3, Phi-2):
+1.  Place your `.gguf` file in the `models/` directory.
+2.  Update `config/paths.py`:
+    ```python
+    MISTRAL_GGUF_MODEL_PATH = MODEL_DIR / "your-model-file.gguf"
+    ```
+3.  Restart the application.
 
 > [!NOTE]
 > The ONNX embedding model uses a symlink from `~/.cache/chroma/onnx_models` to `/app/models/onnx_cache/chroma` to ensure ChromaDB finds the model while keeping it in the persistent Docker volume.
